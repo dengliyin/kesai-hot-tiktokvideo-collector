@@ -79,11 +79,11 @@ The download phase:
 
 The Gemini teardown test phase:
 
-- Reads `modelmesh_api_key`, `modelmesh_base_url`, `video_analysis_model`, and `video_analysis_prompt` from local `fastmoss_config.json` or environment variables.
+- Reads `modelmesh_api_key`, `modelmesh_base_url`, `video_analysis_model`, `analysis_input_path`, and `video_analysis_prompt` from local `fastmoss_config.json` or environment variables.
 - Calls the Shengsuanyun/ModelMesh Gemini-compatible endpoint with a local MP4 as base64 inline video.
 - Uses `google/gemini-3-flash` by default.
 - Writes Markdown and raw JSON results to local `analysis/`.
-- The Web UI has a "视频拆解参数" area for editing the local API key, model, max output tokens, video count limit, and teardown prompt.
+- The Web UI has a "视频拆解参数" area for editing the local API key, model, max output tokens, video count limit, teardown prompt, and a manual video path. The path can be a directory of MP4 files or a single MP4 file; leave it empty to use the latest download directory.
 
 Run a single-video minimal test with:
 

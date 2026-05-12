@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import json
+import html
 import os
 import subprocess
 import sys
@@ -8,7 +9,7 @@ import time
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 
 
 ROOT = Path(__file__).resolve().parent
@@ -34,6 +35,7 @@ DEFAULT_CONFIG = {
     "video_analysis_prompt": "",
     "video_analysis_max_output_tokens": 32768,
     "analysis_video_limit": 0,
+    "analysis_input_path": "",
 }
 
 
@@ -135,6 +137,7 @@ def save_config(config):
     config["video_analysis_prompt"] = str(config.get("video_analysis_prompt", ""))
     config["video_analysis_max_output_tokens"] = int(config.get("video_analysis_max_output_tokens", 32768))
     config["analysis_video_limit"] = int(config.get("analysis_video_limit", 0))
+    config["analysis_input_path"] = str(config.get("analysis_input_path", "")).strip()
     CONFIG_PATH.write_text(json.dumps(config, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return config
 
@@ -167,6 +170,37 @@ def file_listing():
         for path in sorted(ANALYSIS_DIR.rglob("*.md"), key=lambda p: p.stat().st_mtime, reverse=True)[:30]
     ]
     return {"csv_files": csv_files, "download_dirs": download_dirs, "analysis_files": analysis_files}
+
+
+def choose_analysis_path(kind="folder"):
+    if kind == "file":
+        script = 'POSIX path of (choose file with prompt "选择要拆解的 MP4 视频")'
+    else:
+        script = 'POSIX path of (choose folder with prompt "选择要拆解的视频目录")'
+    result = subprocess.run(
+        ["osascript", "-e", script],
+        check=True,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    return result.stdout.strip()
+
+
+def open_local_path(raw_path):
+    target = Path(unquote(raw_path)).expanduser()
+    if not target.exists():
+        raise FileNotFoundError(f"路径不存在: {target}")
+    subprocess.Popen(["open", str(target)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def send_html(handler, status, body):
+    payload = body.encode("utf-8")
+    handler.send_response(status)
+    handler.send_header("Content-Type", "text/html; charset=utf-8")
+    handler.send_header("Content-Length", str(len(payload)))
+    handler.end_headers()
+    handler.wfile.write(payload)
 
 
 INDEX_HTML = r"""<!doctype html>
@@ -204,11 +238,17 @@ INDEX_HTML = r"""<!doctype html>
     .dot.running { background:#22c55e; box-shadow:0 0 0 5px rgba(34,197,94,.12); }
     pre { height:430px; overflow:auto; margin:0; padding:14px; border-radius:6px; background:#0f172a; color:#dbeafe; white-space:pre-wrap; word-break:break-word; }
     .files { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; margin-top:16px; }
-    .filebox { border:1px solid var(--line); border-radius:6px; padding:12px; min-height:130px; }
-    .fileitem { padding:8px 0; border-top:1px solid #eef2f7; }
+    .filebox { border:1px solid var(--line); border-radius:8px; padding:12px; min-height:150px; max-height:240px; overflow:auto; background:#fbfcff; }
+    .fileitem { padding:9px 0; border-top:1px solid #eef2f7; min-width:0; }
     .fileitem:first-child { border-top:0; }
+    .filelink { display:block; max-width:100%; color:#334e73; font-weight:700; text-decoration:none; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .filelink:hover { color:var(--pink); text-decoration:underline; }
+    .filemeta { display:inline-flex; margin-top:5px; padding:2px 7px; border-radius:999px; background:#eef2ff; color:#43536b; font-size:12px; }
+    .empty { padding:14px 0; color:var(--muted); }
     .muted { color:var(--muted); }
-    .path { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12px; color:#475569; overflow-wrap:anywhere; }
+    .pathrow { display:flex; gap:8px; align-items:center; }
+    .pathrow input { min-width:0; }
+    .pathrow button { flex:0 0 auto; }
     @media (max-width:1100px) { .files { grid-template-columns:1fr; } }
     @media (max-width:900px) { main { grid-template-columns:1fr; } }
   </style>
@@ -260,6 +300,12 @@ INDEX_HTML = r"""<!doctype html>
         <div><label>拆解视频数量</label><input id="analysis_video_limit" type="number" min="0" /></div>
         <div><label>最大输出 Tokens</label><input id="video_analysis_max_output_tokens" type="number" min="1024" /></div>
       </div>
+      <label>拆解视频路径</label>
+      <div class="pathrow">
+        <input id="analysis_input_path" placeholder="留空时自动使用最新下载目录" />
+        <button onclick="chooseAnalysisPath('folder')">选择目录</button>
+        <button onclick="chooseAnalysisPath('file')">选择视频</button>
+      </div>
       <label>爆款视频拆解提示词</label>
       <textarea id="video_analysis_prompt" class="prompt" placeholder="粘贴或修改你的爆款视频拆解提示词；留空时使用最小测试提示词"></textarea>
       <div class="buttons">
@@ -308,9 +354,10 @@ INDEX_HTML = r"""<!doctype html>
       video_analysis_model.value = cfg.video_analysis_model || 'google/gemini-3-flash';
       analysis_video_limit.value = cfg.analysis_video_limit ?? 0;
       video_analysis_max_output_tokens.value = cfg.video_analysis_max_output_tokens || 32768;
+      analysis_input_path.value = cfg.analysis_input_path || '';
       video_analysis_prompt.value = cfg.video_analysis_prompt || '';
     }
-    async function saveConfig() {
+    async function saveConfig(silent=false) {
       const payload = {
         phone: phone.value.trim(),
         password: password.value,
@@ -325,14 +372,15 @@ INDEX_HTML = r"""<!doctype html>
         video_analysis_model: video_analysis_model.value,
         analysis_video_limit: Number(analysis_video_limit.value || 0),
         video_analysis_max_output_tokens: Number(video_analysis_max_output_tokens.value || 32768),
+        analysis_input_path: analysis_input_path.value.trim(),
         video_analysis_prompt: video_analysis_prompt.value
       };
       await api('/api/config', {method:'POST', body:JSON.stringify(payload)});
       await refresh();
-      alert('参数已保存');
+      if (!silent) alert('参数已保存');
     }
     async function startTask(task) {
-      await saveConfig();
+      await saveConfig(true);
       await api('/api/run/' + task, {method:'POST', body:'{}'});
       await refresh();
     }
@@ -340,10 +388,23 @@ INDEX_HTML = r"""<!doctype html>
       await api('/api/stop', {method:'POST', body:'{}'});
       await refresh();
     }
+    async function chooseAnalysisPath(kind) {
+      const res = await api('/api/choose-analysis-path', {method:'POST', body:JSON.stringify({kind})});
+      analysis_input_path.value = res.path || '';
+      await saveConfig(true);
+    }
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+    }
+    function openLink(file) {
+      const name = escapeHtml(file.name);
+      const url = '/api/open-path?path=' + encodeURIComponent(file.path);
+      return `<a class="filelink" href="${url}" target="_blank" title="${escapeHtml(file.path)}">${name}</a>`;
+    }
     function renderFiles(files) {
-      csvFiles.innerHTML = files.csv_files.length ? files.csv_files.map(f => `<div class="fileitem"><b>${f.name}</b><div class="path">${f.path}</div></div>`).join('') : '暂无 CSV';
-      downloadDirs.innerHTML = files.download_dirs.length ? files.download_dirs.map(f => `<div class="fileitem"><b>${f.name}</b> <span class="muted">(${f.count} 个 mp4)</span><div class="path">${f.path}</div></div>`).join('') : '暂无下载目录';
-      analysisFiles.innerHTML = files.analysis_files.length ? files.analysis_files.map(f => `<div class="fileitem"><b>${f.name}</b><div class="path">${f.path}</div></div>`).join('') : '暂无拆解结果';
+      csvFiles.innerHTML = files.csv_files.length ? files.csv_files.map(f => `<div class="fileitem">${openLink(f)}</div>`).join('') : '<div class="empty">暂无 CSV</div>';
+      downloadDirs.innerHTML = files.download_dirs.length ? files.download_dirs.map(f => `<div class="fileitem">${openLink(f)}<span class="filemeta">${f.count} 个 mp4</span></div>`).join('') : '<div class="empty">暂无下载目录</div>';
+      analysisFiles.innerHTML = files.analysis_files.length ? files.analysis_files.map(f => `<div class="fileitem">${openLink(f)}</div>`).join('') : '<div class="empty">暂无拆解结果</div>';
     }
     async function refresh() {
       const st = await api('/api/status');
@@ -377,7 +438,9 @@ class Handler(BaseHTTPRequestHandler):
         return json.loads(self.rfile.read(length).decode("utf-8"))
 
     def do_GET(self):
-        path = urlparse(self.path).path
+        parsed = urlparse(self.path)
+        path = parsed.path
+        query = parse_qs(parsed.query)
         try:
             if path == "/":
                 body = INDEX_HTML.encode("utf-8")
@@ -392,6 +455,13 @@ class Handler(BaseHTTPRequestHandler):
                 payload = JOBS.status()
                 payload["files"] = file_listing()
                 self._json(200, payload)
+            elif path == "/api/open-path":
+                raw_path = query.get("path", [""])[0]
+                if not raw_path:
+                    raise ValueError("缺少 path")
+                open_local_path(raw_path)
+                name = html.escape(Path(unquote(raw_path)).name)
+                send_html(self, 200, f"<!doctype html><meta charset='utf-8'><title>已打开</title><body style='font:14px -apple-system,BlinkMacSystemFont,sans-serif;padding:24px'>已打开：{name}</body>")
             else:
                 self._json(404, {"error": "Not found"})
         except Exception as exc:
@@ -408,6 +478,10 @@ class Handler(BaseHTTPRequestHandler):
             elif path == "/api/run/analyze":
                 JOBS.start("拆解视频", [sys.executable, "scripts/gemini_video_teardown_batch.py"])
                 self._json(200, {"ok": True})
+            elif path == "/api/choose-analysis-path":
+                payload = self._read_json()
+                selected = choose_analysis_path(payload.get("kind", "folder"))
+                self._json(200, {"path": selected})
             elif path == "/api/stop":
                 self._json(200, {"stopped": JOBS.stop()})
             else:

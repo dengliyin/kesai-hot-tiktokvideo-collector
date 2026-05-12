@@ -16,5 +16,6 @@
   "video_analysis_model": "google/gemini-3-flash",
   "video_analysis_prompt": "",
   "video_analysis_max_output_tokens": 32768,
-  "analysis_video_limit": 0
+  "analysis_video_limit": 0,
+  "analysis_input_path": ""
 }

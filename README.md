@@ -54,7 +54,9 @@ TikTok视频ID.mp4
 
 ## Gemini 视频拆解测试
 
-页面里已经有「视频拆解参数」区域，可以保存中转 API Key、切换模型、修改拆解提示词，并点击「拆解视频」分析最新下载目录里的 MP4。
+页面里已经有「视频拆解参数」区域，可以保存中转 API Key、切换模型、修改拆解提示词，并点击「拆解视频」分析 MP4。
+
+「拆解视频路径」可以手动填写，也可以点击「选择目录」批量拆解一个目录，或点击「选择视频」单独拆解一个 MP4。留空时默认分析最新下载目录里的 MP4。
 
 这些字段只保存在本地 `fastmoss_config.json`，不要提交到 Git：
 
@@ -65,7 +67,8 @@ TikTok视频ID.mp4
   "video_analysis_model": "google/gemini-3-flash",
   "video_analysis_prompt": "",
   "video_analysis_max_output_tokens": 32768,
-  "analysis_video_limit": 0
+  "analysis_video_limit": 0,
+  "analysis_input_path": ""
 }
 ```
 

@@ -37,6 +37,28 @@ def find_latest_video_dir():
     return sorted(candidates, key=lambda p: p.stat().st_mtime, reverse=True)[0]
 
 
+def resolve_input_path(config):
+    configured = str(config.get("analysis_input_path", "") or "").strip()
+    if configured:
+        path = Path(configured).expanduser().resolve()
+        if not path.exists():
+            raise SystemExit(f"拆解视频路径不存在: {path}")
+        return path
+
+    latest = find_latest_video_dir()
+    if not latest:
+        raise SystemExit("downloads/ 里没有找到包含 MP4 的视频目录")
+    return latest
+
+
+def find_videos(input_path):
+    if input_path.is_file():
+        if input_path.suffix.lower() != ".mp4":
+            raise SystemExit(f"选择的文件不是 MP4: {input_path}")
+        return [input_path]
+    return sorted(input_path.glob("*.mp4"))
+
+
 def write_outputs(output_dir, video_path, text, raw_response):
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / f"{video_path.stem}_gemini_teardown.md"
@@ -48,18 +70,16 @@ def write_outputs(output_dir, video_path, text, raw_response):
 
 def main():
     config = load_config()
-    input_dir = find_latest_video_dir()
-    if not input_dir:
-        raise SystemExit("downloads/ 里没有找到包含 MP4 的视频目录")
+    input_path = resolve_input_path(config)
 
-    videos = sorted(input_dir.glob("*.mp4"))
+    videos = find_videos(input_path)
     limit = int(config.get("analysis_video_limit", 0) or 0)
     if limit > 0:
         videos = videos[:limit]
     if not videos:
-        raise SystemExit(f"没有可拆解的视频: {input_dir}")
+        raise SystemExit(f"没有可拆解的视频: {input_path}")
 
-    output_dir = OUTPUT_ROOT / safe_output_name(input_dir.name)
+    output_dir = OUTPUT_ROOT / safe_output_name(input_path.stem if input_path.is_file() else input_path.name)
     args = SimpleNamespace(
         model=config.get("video_analysis_model") or DEFAULT_MODEL,
         base_url=config.get("modelmesh_base_url") or DEFAULT_BASE_URL,
@@ -70,7 +90,7 @@ def main():
     )
 
     log("开始视频拆解任务")
-    log(f"读取视频目录: {input_dir}")
+    log(f"读取视频路径: {input_path}")
     log(f"输出目录: {output_dir}")
     log(f"模型: {args.model}")
     log(f"视频数量: {len(videos)}")
