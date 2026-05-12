@@ -1,13 +1,13 @@
 ---
 name: kesai-hot-tiktokvideo-collector
-description: Run and maintain the local "科赛力量爆款收集专家" app for FastMoss TikTok product/video collection and Kolsprite video downloads. Use when the user asks to collect FastMoss product-linked TikTok video data, export TikTok video URLs, download videos from collected URLs, adjust the app workflow, update saved task parameters, or troubleshoot this specific collector.
+description: Run and maintain the local "科赛力量爆款收集专家" app for FastMoss TikTok product/video collection, Kolsprite video downloads, and Gemini/ModelMesh video teardown tests. Use when the user asks to collect FastMoss product-linked TikTok video data, export TikTok video URLs, download videos from collected URLs, analyze downloaded TikTok videos into scripts, adjust the app workflow, update saved task parameters, or troubleshoot this specific collector.
 ---
 
 # 科赛力量爆款收集专家
 
 ## Overview
 
-Use the local collector project to search FastMoss products by keyword, country/region, and a three-level category path, collect product-linked video metrics and TikTok URLs, then download the corresponding no-watermark MP4 files through Kolsprite.
+Use the local collector project to search FastMoss products by keyword, country/region, and a three-level category path, collect product-linked video metrics and TikTok URLs, download the corresponding no-watermark MP4 files through Kolsprite, and test Gemini-based teardown of downloaded videos.
 
 The canonical project root on this machine is:
 
@@ -77,6 +77,19 @@ The download phase:
 - Clicks the high-quality no-watermark MP4 download option.
 - Saves each video using only the TikTok video ID, for example `7622175051634314497.mp4`.
 
+The Gemini teardown test phase:
+
+- Reads `modelmesh_api_key`, `modelmesh_base_url`, `video_analysis_model`, and `video_analysis_prompt` from local `fastmoss_config.json` or environment variables.
+- Calls the Shengsuanyun/ModelMesh Gemini-compatible endpoint with a local MP4 as base64 inline video.
+- Uses `google/gemini-3-flash` by default.
+- Writes Markdown and raw JSON results to local `analysis/`.
+
+Run a single-video minimal test with:
+
+```bash
+python3 scripts/gemini_video_teardown_test.py /path/to/video.mp4
+```
+
 ## Outputs
 
 CSV files are written to `storage/`.
@@ -105,6 +118,7 @@ TikTok视频ID.mp4
 ## Safety Rules
 
 - Never commit `fastmoss_config.json`, `storage/`, `browser-profile/`, `downloads/`, `app.log`, or generated MP4/CSV files.
+- Never commit `analysis/`, model API keys, or the user's proprietary teardown prompt.
 - Never commit real task keywords in examples, defaults, docs, or skill text. Use an empty value or a generic placeholder.
 - Do not print the saved FastMoss password in final responses or logs beyond what the app already masks in its UI.
 - Prefer the app and existing scripts over ad hoc browser automation unless debugging a selector failure.

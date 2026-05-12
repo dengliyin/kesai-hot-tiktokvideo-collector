@@ -51,3 +51,24 @@ TikTok视频ID.mp4
 ```text
 7622175051634314497.mp4
 ```
+
+## Gemini 视频拆解测试
+
+先把中转 API Key 和拆解提示词保存在本地 `fastmoss_config.json`，不要提交到 Git：
+
+```json
+{
+  "modelmesh_api_key": "",
+  "modelmesh_base_url": "https://router.shengsuanyun.com/api",
+  "video_analysis_model": "google/gemini-3-flash",
+  "video_analysis_prompt": ""
+}
+```
+
+对单个 MP4 做最小测试：
+
+```bash
+python3 scripts/gemini_video_teardown_test.py /path/to/video.mp4
+```
+
+结果会输出到本地 `analysis/`，该目录不会提交到 Git。

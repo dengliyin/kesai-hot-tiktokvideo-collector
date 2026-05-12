@@ -10,5 +10,9 @@
   ],
   "product_limit": 3,
   "videos_per_product": 20,
-  "show_browser": false
+  "show_browser": false,
+  "modelmesh_api_key": "",
+  "modelmesh_base_url": "https://router.shengsuanyun.com/api",
+  "video_analysis_model": "google/gemini-3-flash",
+  "video_analysis_prompt": ""
 }
