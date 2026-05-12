@@ -1,0 +1,12 @@
+.DS_Store
+__pycache__/
+*.pyc
+
+# Local secrets and login/session state
+fastmoss_config.json
+storage/
+browser-profile/
+
+# Generated outputs
+downloads/
+app.log

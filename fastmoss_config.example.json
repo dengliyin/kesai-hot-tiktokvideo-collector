@@ -1,0 +1,14 @@
+{
+  "phone": "",
+  "password": "",
+  "keyword": "",
+  "country": "马来西亚",
+  "category_path": [
+    "美妆个护",
+    "头部护理与造型",
+    "染发用品"
+  ],
+  "product_limit": 3,
+  "videos_per_product": 20,
+  "show_browser": false
+}
