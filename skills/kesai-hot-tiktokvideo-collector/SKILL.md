@@ -22,7 +22,7 @@ If the current workspace contains `fastmoss_app.py`, prefer the current workspac
 Collect or confirm these values before running a new task:
 
 - FastMoss phone number and password.
-- Keyword, such as ``.
+- Keyword value provided by the user at runtime. Do not store real keyword examples in committed files.
 - Country/region label exactly as FastMoss displays it, such as `马来西亚`.
 - Three-level category path, separated with `>`, such as `美妆个护 > 头部护理与造型 > 染发用品`.
 - Product link count.
@@ -105,6 +105,7 @@ TikTok视频ID.mp4
 ## Safety Rules
 
 - Never commit `fastmoss_config.json`, `storage/`, `browser-profile/`, `downloads/`, `app.log`, or generated MP4/CSV files.
+- Never commit real task keywords in examples, defaults, docs, or skill text. Use an empty value or a generic placeholder.
 - Do not print the saved FastMoss password in final responses or logs beyond what the app already masks in its UI.
 - Prefer the app and existing scripts over ad hoc browser automation unless debugging a selector failure.
 - When changing the app, keep the user-facing title as `科赛力量爆款收集专家`.
