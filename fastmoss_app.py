@@ -141,6 +141,23 @@ def save_config(config):
     return config
 
 
+def save_teardown_defaults(payload):
+    config = load_config()
+    config["modelmesh_api_key"] = str(payload.get("modelmesh_api_key", config.get("modelmesh_api_key", ""))).strip()
+    config["modelmesh_base_url"] = str(
+        payload.get("modelmesh_base_url", config.get("modelmesh_base_url", DEFAULT_CONFIG["modelmesh_base_url"]))
+    ).strip()
+    config["video_analysis_model"] = str(
+        payload.get("video_analysis_model", config.get("video_analysis_model", DEFAULT_CONFIG["video_analysis_model"]))
+    ).strip()
+    config["video_analysis_prompt"] = str(payload.get("video_analysis_prompt", config.get("video_analysis_prompt", "")))
+    if "analysis_input_path" in payload:
+        config["analysis_input_path"] = str(payload.get("analysis_input_path", config.get("analysis_input_path", ""))).strip()
+    config["video_analysis_max_output_tokens"] = int(config.get("video_analysis_max_output_tokens", 32768))
+    config.pop("analysis_video_limit", None)
+    return save_config(config)
+
+
 def file_listing():
     STORAGE_DIR.mkdir(exist_ok=True)
     DOWNLOAD_DIR.mkdir(exist_ok=True)
@@ -224,6 +241,8 @@ INDEX_HTML = r"""<!doctype html>
     textarea.prompt { min-height:240px; }
     .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
     .buttons { display:flex; flex-wrap:wrap; gap:10px; margin-top:16px; }
+    .sectionhead { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; }
+    .sectionhead h2 { margin:0; }
     .divider { height:1px; background:var(--line); margin:18px 0; }
     .checkline { display:flex; align-items:center; gap:8px; margin-top:14px; font-weight:600; }
     .checkline input { width:auto; }
@@ -283,7 +302,10 @@ INDEX_HTML = r"""<!doctype html>
       </div>
       <p class="muted">默认启动后最小化浏览器窗口，你只看日志。遇到验证码或滑块时，勾选「显示浏览器窗口」后重新运行，手动完成验证即可。</p>
       <div class="divider"></div>
-      <h2>视频拆解参数</h2>
+      <div class="sectionhead">
+        <h2>视频拆解默认设置</h2>
+        <span class="filemeta">本地保存</span>
+      </div>
       <label>ModelMesh API Key</label>
       <input id="modelmesh_api_key" type="password" autocomplete="off" placeholder="只保存在本地 fastmoss_config.json" />
       <label>拆解模型</label>
@@ -305,6 +327,7 @@ INDEX_HTML = r"""<!doctype html>
       <label>爆款视频拆解提示词</label>
       <textarea id="video_analysis_prompt" class="prompt" placeholder="粘贴或修改你的爆款视频拆解提示词；留空时使用最小测试提示词"></textarea>
       <div class="buttons">
+        <button class="primary" onclick="saveTeardownDefaults()">保存默认设置</button>
         <button class="blue" onclick="startTask('analyze')">拆解视频</button>
       </div>
       <p class="muted">选择目录时会拆解目录下全部 MP4；选择单个视频时只拆解该视频。API Key 和提示词只保存在本地配置文件，不会提交到 GitHub。</p>
@@ -371,8 +394,24 @@ INDEX_HTML = r"""<!doctype html>
       await refresh();
       if (!silent) alert('参数已保存');
     }
+    async function saveTeardownDefaults(silent=false) {
+      const payload = {
+        modelmesh_api_key: modelmesh_api_key.value.trim(),
+        modelmesh_base_url: modelmesh_base_url.value.trim(),
+        video_analysis_model: video_analysis_model.value,
+        analysis_input_path: analysis_input_path.value.trim(),
+        video_analysis_prompt: video_analysis_prompt.value
+      };
+      await api('/api/teardown-defaults', {method:'POST', body:JSON.stringify(payload)});
+      await refresh();
+      if (!silent) alert('视频拆解默认设置已保存到本地');
+    }
     async function startTask(task) {
-      await saveConfig(true);
+      if (task === 'analyze') {
+        await saveTeardownDefaults(true);
+      } else {
+        await saveConfig(true);
+      }
       await api('/api/run/' + task, {method:'POST', body:'{}'});
       await refresh();
     }
@@ -464,6 +503,8 @@ class Handler(BaseHTTPRequestHandler):
         try:
             if path == "/api/config":
                 self._json(200, save_config(self._read_json()))
+            elif path == "/api/teardown-defaults":
+                self._json(200, save_teardown_defaults(self._read_json()))
             elif path == "/api/run/full":
                 JOBS.start("一键采集", [sys.executable, "scripts/full_pipeline.py"])
                 self._json(200, {"ok": True})
