@@ -66,8 +66,6 @@ TikTok视频ID.mp4
   "modelmesh_base_url": "https://router.shengsuanyun.com/api",
   "video_analysis_model": "google/gemini-3-flash",
   "video_analysis_prompt": "",
-  "video_analysis_max_output_tokens": 32768,
-  "analysis_video_limit": 0,
   "analysis_input_path": ""
 }
 ```
@@ -84,4 +82,4 @@ python3 scripts/gemini_video_teardown_batch.py
 python3 scripts/gemini_video_teardown_test.py /path/to/video.mp4
 ```
 
-结果会输出到本地 `analysis/`，该目录不会提交到 Git。`analysis_video_limit` 填 `0` 表示拆解最新目录里的全部视频。
+结果会输出到本地 `analysis/`，该目录不会提交到 Git。`analysis_input_path` 是目录时会拆解目录下全部 MP4，是单个 MP4 文件时只拆解该视频。

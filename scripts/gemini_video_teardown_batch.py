@@ -73,9 +73,6 @@ def main():
     input_path = resolve_input_path(config)
 
     videos = find_videos(input_path)
-    limit = int(config.get("analysis_video_limit", 0) or 0)
-    if limit > 0:
-        videos = videos[:limit]
     if not videos:
         raise SystemExit(f"没有可拆解的视频: {input_path}")
 

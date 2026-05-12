@@ -34,7 +34,6 @@ DEFAULT_CONFIG = {
     "video_analysis_model": "google/gemini-3-flash",
     "video_analysis_prompt": "",
     "video_analysis_max_output_tokens": 32768,
-    "analysis_video_limit": 0,
     "analysis_input_path": "",
 }
 
@@ -136,8 +135,8 @@ def save_config(config):
     config["video_analysis_model"] = str(config.get("video_analysis_model", DEFAULT_CONFIG["video_analysis_model"])).strip()
     config["video_analysis_prompt"] = str(config.get("video_analysis_prompt", ""))
     config["video_analysis_max_output_tokens"] = int(config.get("video_analysis_max_output_tokens", 32768))
-    config["analysis_video_limit"] = int(config.get("analysis_video_limit", 0))
     config["analysis_input_path"] = str(config.get("analysis_input_path", "")).strip()
+    config.pop("analysis_video_limit", None)
     CONFIG_PATH.write_text(json.dumps(config, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return config
 
@@ -215,7 +214,7 @@ INDEX_HTML = r"""<!doctype html>
     body { margin:0; font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; color:var(--text); background:var(--bg); }
     header { height:56px; display:flex; align-items:center; justify-content:space-between; padding:0 24px; background:white; border-bottom:1px solid var(--line); }
     h1 { margin:0; font-size:18px; }
-    main { max-width:1180px; margin:24px auto; padding:0 18px; display:grid; grid-template-columns: 430px 1fr; gap:18px; }
+    main { max-width:1280px; margin:24px auto; padding:0 18px; display:grid; grid-template-columns: 430px minmax(0,1fr); gap:18px; }
     section { background:white; border:1px solid var(--line); border-radius:8px; padding:18px; }
     h2 { font-size:15px; margin:0 0 14px; }
     label { display:block; margin:12px 0 6px; color:#334155; font-weight:600; }
@@ -237,11 +236,12 @@ INDEX_HTML = r"""<!doctype html>
     .dot { width:10px; height:10px; border-radius:50%; background:#94a3b8; }
     .dot.running { background:#22c55e; box-shadow:0 0 0 5px rgba(34,197,94,.12); }
     pre { height:430px; overflow:auto; margin:0; padding:14px; border-radius:6px; background:#0f172a; color:#dbeafe; white-space:pre-wrap; word-break:break-word; }
-    .files { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; margin-top:16px; }
-    .filebox { border:1px solid var(--line); border-radius:8px; padding:12px; min-height:150px; max-height:240px; overflow:auto; background:#fbfcff; }
-    .fileitem { padding:9px 0; border-top:1px solid #eef2f7; min-width:0; }
+    .files { display:grid; grid-template-columns:1fr; gap:12px; margin-top:16px; }
+    .filebox { border:1px solid var(--line); border-radius:8px; padding:14px; max-height:260px; overflow:auto; background:#fbfcff; }
+    .filebox h2 { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+    .fileitem { padding:10px 0; border-top:1px solid #eef2f7; min-width:0; }
     .fileitem:first-child { border-top:0; }
-    .filelink { display:block; max-width:100%; color:#334e73; font-weight:700; text-decoration:none; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .filelink { display:block; max-width:100%; color:#334e73; font-weight:700; line-height:1.4; text-decoration:none; white-space:normal; overflow-wrap:anywhere; word-break:break-word; }
     .filelink:hover { color:var(--pink); text-decoration:underline; }
     .filemeta { display:inline-flex; margin-top:5px; padding:2px 7px; border-radius:999px; background:#eef2ff; color:#43536b; font-size:12px; }
     .empty { padding:14px 0; color:var(--muted); }
@@ -296,10 +296,6 @@ INDEX_HTML = r"""<!doctype html>
       </select>
       <label>接口 Base URL</label>
       <input id="modelmesh_base_url" />
-      <div class="grid2">
-        <div><label>拆解视频数量</label><input id="analysis_video_limit" type="number" min="0" /></div>
-        <div><label>最大输出 Tokens</label><input id="video_analysis_max_output_tokens" type="number" min="1024" /></div>
-      </div>
       <label>拆解视频路径</label>
       <div class="pathrow">
         <input id="analysis_input_path" placeholder="留空时自动使用最新下载目录" />
@@ -311,7 +307,7 @@ INDEX_HTML = r"""<!doctype html>
       <div class="buttons">
         <button class="blue" onclick="startTask('analyze')">拆解视频</button>
       </div>
-      <p class="muted">拆解视频数量填 0 表示分析最新下载目录里的全部 MP4。API Key 和提示词只保存在本地配置文件，不会提交到 GitHub。</p>
+      <p class="muted">选择目录时会拆解目录下全部 MP4；选择单个视频时只拆解该视频。API Key 和提示词只保存在本地配置文件，不会提交到 GitHub。</p>
     </section>
     <section>
       <h2>运行日志</h2>
@@ -352,8 +348,6 @@ INDEX_HTML = r"""<!doctype html>
       modelmesh_api_key.value = cfg.modelmesh_api_key || '';
       modelmesh_base_url.value = cfg.modelmesh_base_url || 'https://router.shengsuanyun.com/api';
       video_analysis_model.value = cfg.video_analysis_model || 'google/gemini-3-flash';
-      analysis_video_limit.value = cfg.analysis_video_limit ?? 0;
-      video_analysis_max_output_tokens.value = cfg.video_analysis_max_output_tokens || 32768;
       analysis_input_path.value = cfg.analysis_input_path || '';
       video_analysis_prompt.value = cfg.video_analysis_prompt || '';
     }
@@ -370,8 +364,6 @@ INDEX_HTML = r"""<!doctype html>
         modelmesh_api_key: modelmesh_api_key.value.trim(),
         modelmesh_base_url: modelmesh_base_url.value.trim(),
         video_analysis_model: video_analysis_model.value,
-        analysis_video_limit: Number(analysis_video_limit.value || 0),
-        video_analysis_max_output_tokens: Number(video_analysis_max_output_tokens.value || 32768),
         analysis_input_path: analysis_input_path.value.trim(),
         video_analysis_prompt: video_analysis_prompt.value
       };
