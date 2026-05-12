@@ -1,0 +1,95 @@
+#!/usr/bin/env python3
+import json
+import sys
+from pathlib import Path
+from types import SimpleNamespace
+
+from gemini_video_teardown_test import (
+    DEFAULT_BASE_URL,
+    DEFAULT_MODEL,
+    OUTPUT_ROOT,
+    analyze_video,
+    load_config,
+)
+
+
+ROOT = Path(__file__).resolve().parents[1]
+DOWNLOAD_ROOT = ROOT / "downloads"
+
+
+def log(message):
+    print(message, flush=True)
+
+
+def safe_output_name(value):
+    return "".join(ch if ch.isalnum() or ch in ("-", "_") else "_" for ch in value).strip("_") or "videos"
+
+
+def find_latest_video_dir():
+    candidates = []
+    if not DOWNLOAD_ROOT.exists():
+        return None
+    for path in DOWNLOAD_ROOT.iterdir():
+        if path.is_dir() and list(path.glob("*.mp4")):
+            candidates.append(path)
+    if not candidates:
+        return None
+    return sorted(candidates, key=lambda p: p.stat().st_mtime, reverse=True)[0]
+
+
+def write_outputs(output_dir, video_path, text, raw_response):
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / f"{video_path.stem}_gemini_teardown.md"
+    raw_path = output_dir / f"{video_path.stem}_gemini_teardown.raw.json"
+    output_path.write_text(text.strip() + "\n", encoding="utf-8")
+    raw_path.write_text(json.dumps(raw_response, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return output_path, raw_path
+
+
+def main():
+    config = load_config()
+    input_dir = find_latest_video_dir()
+    if not input_dir:
+        raise SystemExit("downloads/ 里没有找到包含 MP4 的视频目录")
+
+    videos = sorted(input_dir.glob("*.mp4"))
+    limit = int(config.get("analysis_video_limit", 0) or 0)
+    if limit > 0:
+        videos = videos[:limit]
+    if not videos:
+        raise SystemExit(f"没有可拆解的视频: {input_dir}")
+
+    output_dir = OUTPUT_ROOT / safe_output_name(input_dir.name)
+    args = SimpleNamespace(
+        model=config.get("video_analysis_model") or DEFAULT_MODEL,
+        base_url=config.get("modelmesh_base_url") or DEFAULT_BASE_URL,
+        prompt="",
+        prompt_file="",
+        timeout=240,
+        max_output_tokens=int(config.get("video_analysis_max_output_tokens", 32768) or 32768),
+    )
+
+    log("开始视频拆解任务")
+    log(f"读取视频目录: {input_dir}")
+    log(f"输出目录: {output_dir}")
+    log(f"模型: {args.model}")
+    log(f"视频数量: {len(videos)}")
+
+    success_count = 0
+    for index, video_path in enumerate(videos, start=1):
+        log(f"[{index}/{len(videos)}] 拆解视频: {video_path.name}")
+        try:
+            text, raw_response, endpoint_style, field_style = analyze_video(video_path, config, args)
+            output_path, _ = write_outputs(output_dir, video_path, text, raw_response)
+            success_count += 1
+            log(f"  拆解完成: {output_path}")
+            log(f"  接口格式: {endpoint_style}, 字段格式: {field_style}")
+        except Exception as exc:
+            log(f"  拆解失败: {exc}")
+
+    log(f"视频拆解任务完成: 成功 {success_count}/{len(videos)}")
+    return 0 if success_count == len(videos) else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

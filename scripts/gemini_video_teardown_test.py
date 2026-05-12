@@ -143,7 +143,7 @@ def analyze_video(video_path, config, args):
         "x-goog-api-key": api_key,
     }
 
-    log("开始 Gemini 视频拆解最小测试")
+    log("开始 Gemini 视频拆解请求")
     log(f"视频文件: {video_path.name}")
     log(f"视频大小: {video_path.stat().st_size / 1024 / 1024:.2f} MB")
     log(f"模型: {model}")

@@ -83,11 +83,18 @@ The Gemini teardown test phase:
 - Calls the Shengsuanyun/ModelMesh Gemini-compatible endpoint with a local MP4 as base64 inline video.
 - Uses `google/gemini-3-flash` by default.
 - Writes Markdown and raw JSON results to local `analysis/`.
+- The Web UI has a "视频拆解参数" area for editing the local API key, model, max output tokens, video count limit, and teardown prompt.
 
 Run a single-video minimal test with:
 
 ```bash
 python3 scripts/gemini_video_teardown_test.py /path/to/video.mp4
+```
+
+Run batch teardown for the latest download directory with:
+
+```bash
+python3 scripts/gemini_video_teardown_batch.py
 ```
 
 ## Outputs
