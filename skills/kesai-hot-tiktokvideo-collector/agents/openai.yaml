@@ -1,0 +1,4 @@
+interface:
+  display_name: "科赛力量爆款收集专家"
+  short_description: "运行 FastMoss 爆款视频采集下载流程"
+  default_prompt: "Use $kesai-hot-tiktokvideo-collector to collect FastMoss product video data and download TikTok videos with my provided parameters."
