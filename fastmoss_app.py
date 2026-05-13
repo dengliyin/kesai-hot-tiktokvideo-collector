@@ -279,12 +279,18 @@ INDEX_HTML = r"""<!doctype html>
     .fileitem:first-child { border-top:0; }
     .filelink { display:block; max-width:100%; color:#1d4f8f; font-weight:700; line-height:1.4; text-decoration:none; white-space:normal; overflow-wrap:anywhere; word-break:break-word; }
     .filelink:hover { color:var(--accent); text-decoration:underline; }
+    .filebutton { width:100%; min-height:0; border:0; border-radius:0; padding:0; text-align:left; background:transparent; box-shadow:none; }
+    .filebutton:hover { background:transparent; }
+    .filebutton:active { transform:none; }
     .filemeta { display:inline-flex; align-items:center; margin-top:5px; padding:2px 7px; border-radius:999px; background:#eef5ff; color:#315f93; font-size:12px; font-weight:600; }
     .empty { padding:14px 0; color:var(--muted); }
     .muted { color:var(--muted); font-size:13px; }
     .pathrow { display:flex; gap:8px; align-items:center; }
     .pathrow input { min-width:0; }
     .pathrow button { flex:0 0 auto; }
+    .toast { position:fixed; top:72px; right:24px; z-index:10; max-width:360px; padding:12px 14px; border-radius:8px; background:rgba(29,29,31,.92); color:#fff; box-shadow:0 14px 36px rgba(0,0,0,.18); opacity:0; pointer-events:none; transform:translateY(-8px); transition:opacity .18s ease, transform .18s ease; }
+    .toast.show { opacity:1; transform:translateY(0); }
+    .toast.error { background:rgba(215,0,21,.94); }
     @media (max-width:1100px) { .files { grid-template-columns:1fr; } }
     @media (max-width:900px) { main { grid-template-columns:1fr; } }
   </style>
@@ -294,6 +300,7 @@ INDEX_HTML = r"""<!doctype html>
     <h1>科赛力量爆款收集专家</h1>
     <div class="status"><span id="dot" class="dot"></span><span id="statusText">未运行</span></div>
   </header>
+  <div id="toast" class="toast"></div>
   <main>
     <section>
       <h2>任务参数</h2>
@@ -444,15 +451,29 @@ INDEX_HTML = r"""<!doctype html>
     function escapeHtml(value) {
       return String(value).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
     }
-    function openLink(file) {
+    function showToast(message, isError=false) {
+      toast.textContent = message;
+      toast.className = 'toast show' + (isError ? ' error' : '');
+      clearTimeout(window.toastTimer);
+      window.toastTimer = setTimeout(() => { toast.className = 'toast'; }, 2400);
+    }
+    async function openLocalPath(path) {
+      try {
+        const result = await api('/api/open-path', {method:'POST', body:JSON.stringify({path})});
+        showToast('已打开：' + result.name);
+      } catch (error) {
+        showToast(error.message || '打开失败', true);
+      }
+    }
+    function openButton(file) {
       const name = escapeHtml(file.name);
-      const url = '/api/open-path?path=' + encodeURIComponent(file.path);
-      return `<a class="filelink" href="${url}" target="_blank" title="${escapeHtml(file.path)}">${name}</a>`;
+      const encodedPath = encodeURIComponent(file.path);
+      return `<button class="filelink filebutton" type="button" data-path="${encodedPath}" onclick="openLocalPath(decodeURIComponent(this.dataset.path))" title="${escapeHtml(file.path)}">${name}</button>`;
     }
     function renderFiles(files) {
-      csvFiles.innerHTML = files.csv_files.length ? files.csv_files.map(f => `<div class="fileitem">${openLink(f)}</div>`).join('') : '<div class="empty">暂无 CSV</div>';
-      downloadDirs.innerHTML = files.download_dirs.length ? files.download_dirs.map(f => `<div class="fileitem">${openLink(f)}<span class="filemeta">${f.count} 个 mp4</span></div>`).join('') : '<div class="empty">暂无下载目录</div>';
-      analysisFiles.innerHTML = files.analysis_files.length ? files.analysis_files.map(f => `<div class="fileitem">${openLink(f)}</div>`).join('') : '<div class="empty">暂无拆解结果</div>';
+      csvFiles.innerHTML = files.csv_files.length ? files.csv_files.map(f => `<div class="fileitem">${openButton(f)}</div>`).join('') : '<div class="empty">暂无 CSV</div>';
+      downloadDirs.innerHTML = files.download_dirs.length ? files.download_dirs.map(f => `<div class="fileitem">${openButton(f)}<span class="filemeta">${f.count} 个 mp4</span></div>`).join('') : '<div class="empty">暂无下载目录</div>';
+      analysisFiles.innerHTML = files.analysis_files.length ? files.analysis_files.map(f => `<div class="fileitem">${openButton(f)}</div>`).join('') : '<div class="empty">暂无拆解结果</div>';
     }
     async function refresh() {
       const st = await api('/api/status');
@@ -528,6 +549,13 @@ class Handler(BaseHTTPRequestHandler):
             elif path == "/api/run/analyze":
                 JOBS.start("拆解视频", [sys.executable, "scripts/gemini_video_teardown_batch.py"])
                 self._json(200, {"ok": True})
+            elif path == "/api/open-path":
+                payload = self._read_json()
+                raw_path = payload.get("path", "")
+                if not raw_path:
+                    raise ValueError("缺少 path")
+                open_local_path(raw_path)
+                self._json(200, {"ok": True, "name": Path(unquote(raw_path)).name})
             elif path == "/api/choose-analysis-path":
                 payload = self._read_json()
                 selected = choose_analysis_path(payload.get("kind", "folder"))
