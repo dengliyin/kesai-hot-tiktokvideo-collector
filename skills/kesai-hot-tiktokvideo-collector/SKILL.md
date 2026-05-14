@@ -1,13 +1,13 @@
 ---
 name: kesai-hot-tiktokvideo-collector
-description: Run and maintain the local "科赛力量爆款收集专家" app for FastMoss TikTok product/video collection, Kolsprite video downloads, and Gemini/ModelMesh video teardown tests. Use when the user asks to collect FastMoss product-linked TikTok video data, export TikTok video URLs, download videos from collected URLs, analyze downloaded TikTok videos into scripts, adjust the app workflow, update saved task parameters, or troubleshoot this specific collector.
+description: Run and maintain the local "科赛力量爆款收集专家" app for product context storage, FastMoss TikTok product/video collection, Kolsprite video downloads, Gemini/ModelMesh video teardown, and product script generation. Use when the user asks to collect FastMoss product-linked TikTok video data, export TikTok video URLs, download videos from collected URLs, analyze downloaded TikTok videos into scripts, generate product sales scripts from teardown results and product information, adjust the app workflow, update saved task parameters, or troubleshoot this specific collector.
 ---
 
 # 科赛力量爆款收集专家
 
 ## Overview
 
-Use the local collector project to search FastMoss products by keyword, country/region, and a three-level category path, collect product-linked video metrics and TikTok URLs, download the corresponding no-watermark MP4 files through Kolsprite, and test Gemini-based teardown of downloaded videos.
+Use the local collector project to store product context, search FastMoss products by keyword, country/region, and a three-level category path, collect product-linked video metrics and TikTok URLs, download the corresponding no-watermark MP4 files through Kolsprite, tear down downloaded videos with Gemini/ModelMesh, and generate new product sales scripts from competitor teardown results plus the saved product profile.
 
 The canonical project root on this machine is:
 
@@ -27,6 +27,7 @@ Collect or confirm these values before running a new task:
 - Three-level category path, separated with `>`, such as `美妆个护 > 头部护理与造型 > 染发用品`.
 - Product link count.
 - Video count per product.
+- For script generation: a competitor video teardown Markdown file, target country/region, target language, total duration, hook duration, and optional emotion/framework/reference-case notes.
 
 The app stores parameters in `app_config.json`. This file contains local credentials and must not be committed or printed back verbatim.
 
@@ -46,7 +47,7 @@ The app stores parameters in `app_config.json`. This file contains local credent
 http://127.0.0.1:8765
 ```
 
-5. The app has separate pages under the same local entry in workflow order: `/product` for local product context storage, `/collect` for collection/download, and `/analyze` for Gemini video teardown.
+5. The app has separate pages under the same local entry in workflow order: `/product` for local product context storage, `/collect` for collection/download, `/analyze` for Gemini video teardown, and `/script` for generating new product sales scripts.
 6. For a direct command-line run, execute the full pipeline:
 
 ```bash
@@ -80,11 +81,12 @@ The download phase:
 
 The Gemini teardown test phase:
 
-- Reads `modelmesh_api_key`, `modelmesh_base_url`, `video_analysis_model`, `analysis_input_path`, and `video_analysis_prompt` from local `app_config.json` or environment variables.
+- Reads `modelmesh_api_key`, `modelmesh_base_url`, `video_analysis_model`, `analysis_input_path`, `video_analysis_prompt`, and `video_teardown_knowledge_base_path` from local `app_config.json` or environment variables.
 - Calls the Shengsuanyun/ModelMesh Gemini-compatible endpoint with a local MP4 as base64 inline video.
 - Uses `google/gemini-3-flash` by default.
 - Writes Markdown and raw JSON results to local `analysis/`.
-- The Web UI has a separate "视频拆解" page for editing and locally saving the API key, model, teardown prompt, and a manual video path. The path can be a directory of MP4 files or a single MP4 file; directories are analyzed in full, single files are analyzed alone, and the path is required. The teardown page does not automatically use collection download folders.
+- The Web UI has a separate "视频拆解" page for editing and locally saving the API key, model, teardown prompt, video teardown knowledge base, and a manual video path. The path can be a directory of MP4 files or a single MP4 file; directories are analyzed in full, single files are analyzed alone, and the path is required. The teardown page does not automatically use collection download folders.
+- The first local video teardown knowledge base is stored at `knowledge_base/video_teardown_knowledge_base.md`. It is local-only and ignored by Git. Use it for competitor/video teardown methodology; do not mix product profile context into this phase.
 
 The product profile phase:
 
@@ -92,6 +94,13 @@ The product profile phase:
 - Product profile data is stored under `product_profile` in `app_config.json`.
 - Product profile fields follow the product Markdown structure: basic identification, pricing strategy, top 3 selling points, audience x pain matrix, pain/conversion talk tracks, TikTok marketing angles, market keywords, material type suggestions, and notes.
 - Treat product profile content as local business context. Do not commit real product details unless the user explicitly provides sanitized examples for documentation.
+
+The script generation phase:
+
+- The Web UI has a separate "脚本产出" page for turning a selected competitor teardown Markdown plus saved product profile into a new product sales script.
+- It reads `product_profile`, `script_generation_prompt_path`, `script_reference_analysis_path`, `script_country`, `script_target_language`, `script_total_duration`, `script_hook_duration`, `script_audio_emotion`, `script_material_framework`, and `script_reference_case` from local `app_config.json`.
+- The default script generation prompt is stored at `knowledge_base/script_generation_prompt.md`. It is local-only and ignored by Git.
+- Results are written to local `script_outputs/`.
 
 Run a single-video minimal test with:
 
@@ -103,6 +112,12 @@ Run batch teardown for the saved `analysis_input_path` with:
 
 ```bash
 python3 scripts/analyze_video_teardown_batch.py
+```
+
+Generate a product script from the saved script settings with:
+
+```bash
+python3 scripts/generate_product_script.py
 ```
 
 ## Outputs
@@ -133,7 +148,7 @@ TikTok视频ID.mp4
 ## Safety Rules
 
 - Never commit `app_config.json`, `fastmoss_config.json`, `storage/`, `browser-profile/`, `downloads/`, `app.log`, or generated MP4/CSV files.
-- Never commit `analysis/`, model API keys, or the user's proprietary teardown prompt.
+- Never commit `analysis/`, `knowledge_base/`, `script_outputs/`, model API keys, or the user's proprietary teardown/script prompts, teardown knowledge base, product profile, or generated scripts.
 - Never commit real task keywords in examples, defaults, docs, or skill text. Use an empty value or a generic placeholder.
 - Do not print the saved FastMoss password in final responses or logs beyond what the app already masks in its UI.
 - Prefer the app and existing scripts over ad hoc browser automation unless debugging a selector failure.

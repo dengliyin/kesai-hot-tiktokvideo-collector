@@ -18,8 +18,10 @@ LEGACY_CONFIG_PATH = ROOT / "fastmoss_config.json"
 STORAGE_DIR = ROOT / "storage"
 DOWNLOAD_DIR = ROOT / "downloads"
 ANALYSIS_DIR = ROOT / "analysis"
+SCRIPT_OUTPUT_DIR = ROOT / "script_outputs"
 KNOWLEDGE_BASE_DIR = ROOT / "knowledge_base"
 DEFAULT_TEARDOWN_KNOWLEDGE_BASE_PATH = KNOWLEDGE_BASE_DIR / "video_teardown_knowledge_base.md"
+DEFAULT_SCRIPT_GENERATION_PROMPT_PATH = KNOWLEDGE_BASE_DIR / "script_generation_prompt.md"
 HOST = "127.0.0.1"
 PORT = int(os.environ.get("KESAI_APP_PORT", "8765"))
 
@@ -69,6 +71,15 @@ DEFAULT_CONFIG = {
     "video_teardown_knowledge_base_path": "knowledge_base/video_teardown_knowledge_base.md",
     "video_analysis_max_output_tokens": 32768,
     "analysis_input_path": "",
+    "script_generation_prompt_path": "knowledge_base/script_generation_prompt.md",
+    "script_reference_analysis_path": "",
+    "script_country": "",
+    "script_material_framework": "",
+    "script_reference_case": "",
+    "script_audio_emotion": "",
+    "script_target_language": "",
+    "script_total_duration": "40s",
+    "script_hook_duration": "8s",
     "product_profile": DEFAULT_PRODUCT_PROFILE.copy(),
 }
 
@@ -211,8 +222,22 @@ def resolve_teardown_knowledge_base_path(config):
     )
 
 
+def resolve_script_generation_prompt_path(config):
+    return resolve_project_path(
+        config.get("script_generation_prompt_path", DEFAULT_CONFIG["script_generation_prompt_path"]),
+        DEFAULT_SCRIPT_GENERATION_PROMPT_PATH,
+    )
+
+
 def read_teardown_knowledge_base(config):
     path = resolve_teardown_knowledge_base_path(config)
+    if not path.exists():
+        return ""
+    return path.read_text(encoding="utf-8")
+
+
+def read_script_generation_prompt(config):
+    path = resolve_script_generation_prompt_path(config)
     if not path.exists():
         return ""
     return path.read_text(encoding="utf-8")
@@ -225,9 +250,17 @@ def write_teardown_knowledge_base(config, text):
     return path
 
 
+def write_script_generation_prompt(config, text):
+    path = resolve_script_generation_prompt_path(config)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(str(text or "").rstrip() + "\n", encoding="utf-8")
+    return path
+
+
 def config_payload():
     config = load_config()
     config["video_teardown_knowledge_base"] = read_teardown_knowledge_base(config)
+    config["script_generation_prompt"] = read_script_generation_prompt(config)
     return config
 
 
@@ -256,6 +289,33 @@ def save_teardown_defaults(payload):
     return save_config(config)
 
 
+def save_script_defaults(payload):
+    config = load_config()
+    config["script_generation_prompt_path"] = str(
+        payload.get(
+            "script_generation_prompt_path",
+            config.get("script_generation_prompt_path", DEFAULT_CONFIG["script_generation_prompt_path"]),
+        )
+    ).strip()
+    config["script_reference_analysis_path"] = str(
+        payload.get("script_reference_analysis_path", config.get("script_reference_analysis_path", ""))
+    ).strip()
+    config["script_country"] = str(payload.get("script_country", config.get("script_country", ""))).strip()
+    config["script_material_framework"] = str(
+        payload.get("script_material_framework", config.get("script_material_framework", ""))
+    )
+    config["script_reference_case"] = str(payload.get("script_reference_case", config.get("script_reference_case", "")))
+    config["script_audio_emotion"] = str(payload.get("script_audio_emotion", config.get("script_audio_emotion", ""))).strip()
+    config["script_target_language"] = str(
+        payload.get("script_target_language", config.get("script_target_language", ""))
+    ).strip()
+    config["script_total_duration"] = str(payload.get("script_total_duration", config.get("script_total_duration", "40s"))).strip()
+    config["script_hook_duration"] = str(payload.get("script_hook_duration", config.get("script_hook_duration", "8s"))).strip()
+    if "script_generation_prompt" in payload:
+        write_script_generation_prompt(config, payload.get("script_generation_prompt", ""))
+    return save_config(config)
+
+
 def save_product_profile(payload):
     config = load_config()
     profile = payload.get("product_profile", payload)
@@ -268,6 +328,7 @@ def file_listing():
     STORAGE_DIR.mkdir(exist_ok=True)
     DOWNLOAD_DIR.mkdir(exist_ok=True)
     ANALYSIS_DIR.mkdir(exist_ok=True)
+    SCRIPT_OUTPUT_DIR.mkdir(exist_ok=True)
     csv_files = [
         {
             "name": path.name,
@@ -291,7 +352,16 @@ def file_listing():
         }
         for path in sorted(ANALYSIS_DIR.rglob("*.md"), key=lambda p: p.stat().st_mtime, reverse=True)[:30]
     ]
-    return {"csv_files": csv_files, "download_dirs": download_dirs, "analysis_files": analysis_files}
+    script_files = [
+        {
+            "name": path.name,
+            "path": str(path),
+            "size": path.stat().st_size,
+            "mtime": path.stat().st_mtime,
+        }
+        for path in sorted(SCRIPT_OUTPUT_DIR.rglob("*.md"), key=lambda p: p.stat().st_mtime, reverse=True)[:30]
+    ]
+    return {"csv_files": csv_files, "download_dirs": download_dirs, "analysis_files": analysis_files, "script_files": script_files}
 
 
 def choose_analysis_path(kind="folder"):
@@ -299,6 +369,18 @@ def choose_analysis_path(kind="folder"):
         script = 'POSIX path of (choose file with prompt "选择要拆解的 MP4 视频")'
     else:
         script = 'POSIX path of (choose folder with prompt "选择要拆解的视频目录")'
+    result = subprocess.run(
+        ["osascript", "-e", script],
+        check=True,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    return result.stdout.strip()
+
+
+def choose_script_reference_path():
+    script = 'POSIX path of (choose file with prompt "选择竞品视频拆解结果 Markdown")'
     result = subprocess.run(
         ["osascript", "-e", script],
         check=True,
@@ -321,6 +403,22 @@ def validate_analysis_input_path(config):
         raise ValueError(f"选择的文件不是 MP4: {target.name}")
     if target.is_dir() and not any(target.glob("*.mp4")):
         raise ValueError(f"选择的目录里没有 MP4: {target}")
+
+
+def validate_script_generation_input(config):
+    raw_path = str(config.get("script_reference_analysis_path", "") or "").strip()
+    if not raw_path:
+        raise ValueError("请先选择一个竞品视频拆解结果 Markdown")
+
+    target = Path(raw_path).expanduser()
+    if not target.exists():
+        raise ValueError(f"竞品视频拆解结果不存在: {target}")
+    if target.suffix.lower() != ".md":
+        raise ValueError(f"竞品视频拆解结果必须是 Markdown 文件: {target.name}")
+
+    prompt_path = resolve_script_generation_prompt_path(config)
+    if not prompt_path.exists():
+        raise ValueError(f"脚本产出提示词文件不存在: {prompt_path}")
 
 
 def open_local_path(raw_path):
@@ -363,12 +461,11 @@ INDEX_HTML = r"""<!doctype html>
     }
     * { box-sizing: border-box; }
     body { margin:0; font:14px/1.45 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",sans-serif; color:var(--text); background:var(--bg); letter-spacing:0; }
-    body[data-page="collect"] #productPage,
-    body[data-page="collect"] #analyzePage,
-    body[data-page="product"] #collectPage,
-    body[data-page="product"] #analyzePage,
-    body[data-page="analyze"] #collectPage,
-    body[data-page="analyze"] #productPage { display:none; }
+    .page { display:none; }
+    body[data-page="product"] #productPage,
+    body[data-page="collect"] #collectPage,
+    body[data-page="analyze"] #analyzePage,
+    body[data-page="script"] #scriptPage { display:block; }
     header { position:sticky; top:0; z-index:2; min-height:62px; display:flex; align-items:center; justify-content:space-between; gap:18px; padding:0 28px; background:rgba(255,255,255,.78); border-bottom:1px solid rgba(0,0,0,.08); backdrop-filter:saturate(180%) blur(18px); }
     .headleft { display:flex; align-items:center; gap:22px; min-width:0; }
     h1 { margin:0; font-size:18px; font-weight:700; letter-spacing:0; }
@@ -389,6 +486,7 @@ INDEX_HTML = r"""<!doctype html>
     textarea { min-height:78px; resize:vertical; }
     textarea.prompt { min-height:260px; font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",sans-serif; }
     textarea.knowledge { min-height:220px; font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",sans-serif; }
+    textarea.scriptprompt { min-height:300px; font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",sans-serif; }
     textarea.tall { min-height:120px; }
     .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
     .buttons { display:flex; flex-wrap:wrap; gap:10px; margin-top:16px; }
@@ -445,6 +543,7 @@ INDEX_HTML = r"""<!doctype html>
         <a id="productNav" href="/product">产品信息</a>
         <a id="collectNav" href="/collect">爆款采集</a>
         <a id="analyzeNav" href="/analyze">视频拆解</a>
+        <a id="scriptNav" href="/script">脚本产出</a>
       </nav>
     </div>
     <div class="status"><span id="dot" class="dot"></span><span id="statusText">未运行</span></div>
@@ -614,8 +713,8 @@ INDEX_HTML = r"""<!doctype html>
             <span class="muted">价格、优惠、信任背书和禁用表达会约束脚本生成方向。</span>
           </div>
           <div class="infoItem">
-            <strong>3. 支持后续一键仿写</strong>
-            <span class="muted">下一步可以把「视频拆解结果 + 产品信息」合并，让模型输出你的带货脚本。</span>
+            <strong>3. 支持脚本产出</strong>
+            <span class="muted">把「视频拆解结果 + 产品信息」合并，让模型输出你的带货脚本。</span>
           </div>
         </div>
       </section>
@@ -677,12 +776,85 @@ INDEX_HTML = r"""<!doctype html>
     </section>
     </div>
   </main>
+  <main id="scriptPage" class="page">
+    <div class="pageintro">
+      <div>
+        <h2>脚本产出</h2>
+        <p class="muted">把竞品视频拆解结果和你的产品信息合并，复刻成适合自家产品的新带货脚本。</p>
+      </div>
+    </div>
+    <div class="workspace">
+    <section>
+      <div class="sectionhead">
+        <h2>脚本产出参数</h2>
+        <span class="filemeta">本地保存</span>
+      </div>
+      <label>脚本产出提示词文件</label>
+      <input id="script_generation_prompt_path" placeholder="knowledge_base/script_generation_prompt.md" />
+      <label>竞品视频拆解结果</label>
+      <div class="pathrow">
+        <input id="script_reference_analysis_path" placeholder="请选择一个视频拆解结果 .md 文件" />
+        <button onclick="chooseScriptReferencePath()">选择拆解结果</button>
+        <button onclick="openLocalPath(script_reference_analysis_path.value)">打开文件</button>
+      </div>
+      <div class="grid2">
+        <div>
+          <label>国家/地区</label>
+          <input id="script_country" placeholder="例如：马来西亚" />
+        </div>
+        <div>
+          <label>目标语言</label>
+          <input id="script_target_language" placeholder="例如：马来语 / 西班牙语 / 英语" />
+        </div>
+      </div>
+      <div class="grid2">
+        <div>
+          <label>视频总时长</label>
+          <input id="script_total_duration" placeholder="例如：40s" />
+        </div>
+        <div>
+          <label>黄金钩子时长</label>
+          <input id="script_hook_duration" placeholder="例如：8s" />
+        </div>
+      </div>
+      <label>音频情绪强度</label>
+      <input id="script_audio_emotion" placeholder="例如：毒舌犀利 / 离职博主爆料 / 强度 8" />
+      <label>素材框架</label>
+      <textarea id="script_material_framework" class="tall" placeholder="可粘贴素材类型序号和框架公式；留空时从竞品拆解结果中自动提取。"></textarea>
+      <label>参考案例补充</label>
+      <textarea id="script_reference_case" class="tall" placeholder="可粘贴同类型案例全文；留空时直接使用选中的竞品视频拆解结果。"></textarea>
+      <label>爆款复刻提示词</label>
+      <textarea id="script_generation_prompt" class="scriptprompt" placeholder="这里会读取本地脚本产出提示词；可直接修改后保存。"></textarea>
+      <div class="buttons">
+        <button class="primary" onclick="saveScriptDefaults()">保存脚本设置</button>
+        <button class="blue" onclick="startTask('script')">生成脚本</button>
+        <button class="danger" onclick="stopTask()">停止任务</button>
+      </div>
+      <p class="muted">脚本产出会读取「产品信息」页保存的产品资料，并结合你选择的竞品拆解结果。生成内容保存在本地，不会提交到 GitHub。</p>
+    </section>
+    <section>
+      <h2>运行日志</h2>
+      <pre id="scriptLogs"></pre>
+      <div class="files">
+        <div class="filebox">
+          <h2>脚本产出结果</h2>
+          <div id="scriptFiles" class="muted">加载中...</div>
+        </div>
+        <div class="filebox">
+          <h2>可选拆解结果</h2>
+          <div id="scriptAnalysisFiles" class="muted">加载中...</div>
+        </div>
+      </div>
+    </section>
+    </div>
+  </main>
   <script>
-    const currentPage = location.pathname === '/analyze' ? 'analyze' : (location.pathname === '/collect' ? 'collect' : 'product');
+    const currentPage = location.pathname === '/script' ? 'script' : (location.pathname === '/analyze' ? 'analyze' : (location.pathname === '/collect' ? 'collect' : 'product'));
     document.body.dataset.page = currentPage;
     collectNav.classList.toggle('active', currentPage === 'collect');
     productNav.classList.toggle('active', currentPage === 'product');
     analyzeNav.classList.toggle('active', currentPage === 'analyze');
+    scriptNav.classList.toggle('active', currentPage === 'script');
     const productFields = [
       'market',
       'collection_date',
@@ -726,6 +898,16 @@ INDEX_HTML = r"""<!doctype html>
       video_teardown_knowledge_base.value = cfg.video_teardown_knowledge_base || '';
       analysis_input_path.value = cfg.analysis_input_path || '';
       video_analysis_prompt.value = cfg.video_analysis_prompt || '';
+      script_generation_prompt_path.value = cfg.script_generation_prompt_path || 'knowledge_base/script_generation_prompt.md';
+      script_generation_prompt.value = cfg.script_generation_prompt || '';
+      script_reference_analysis_path.value = cfg.script_reference_analysis_path || '';
+      script_country.value = cfg.script_country || cfg.country || '';
+      script_material_framework.value = cfg.script_material_framework || '';
+      script_reference_case.value = cfg.script_reference_case || '';
+      script_audio_emotion.value = cfg.script_audio_emotion || '';
+      script_target_language.value = cfg.script_target_language || '';
+      script_total_duration.value = cfg.script_total_duration || '40s';
+      script_hook_duration.value = cfg.script_hook_duration || '8s';
       const profile = cfg.product_profile || {};
       productFields.forEach(field => {
         const el = document.getElementById('product_' + field);
@@ -761,6 +943,23 @@ INDEX_HTML = r"""<!doctype html>
       await refresh();
       if (!silent) alert('视频拆解默认设置已保存到本地');
     }
+    async function saveScriptDefaults(silent=false) {
+      const payload = {
+        script_generation_prompt_path: script_generation_prompt_path.value.trim(),
+        script_generation_prompt: script_generation_prompt.value,
+        script_reference_analysis_path: script_reference_analysis_path.value.trim(),
+        script_country: script_country.value.trim(),
+        script_material_framework: script_material_framework.value,
+        script_reference_case: script_reference_case.value,
+        script_audio_emotion: script_audio_emotion.value.trim(),
+        script_target_language: script_target_language.value.trim(),
+        script_total_duration: script_total_duration.value.trim(),
+        script_hook_duration: script_hook_duration.value.trim()
+      };
+      await api('/api/script-defaults', {method:'POST', body:JSON.stringify(payload)});
+      await refresh();
+      if (!silent) alert('脚本产出设置已保存到本地');
+    }
     async function saveProductProfile(silent=false) {
       try {
         const product_profile = {};
@@ -782,6 +981,12 @@ INDEX_HTML = r"""<!doctype html>
             return;
           }
           await saveTeardownDefaults(true);
+        } else if (task === 'script') {
+          if (!script_reference_analysis_path.value.trim()) {
+            showToast('请先选择竞品视频拆解结果 Markdown', true);
+            return;
+          }
+          await saveScriptDefaults(true);
         } else {
           await saveConfig(true);
         }
@@ -802,6 +1007,15 @@ INDEX_HTML = r"""<!doctype html>
         await saveTeardownDefaults(true);
       } catch (error) {
         showToast(error.message || '选择路径失败', true);
+      }
+    }
+    async function chooseScriptReferencePath() {
+      try {
+        const res = await api('/api/choose-script-reference-path', {method:'POST', body:'{}'});
+        script_reference_analysis_path.value = res.path || '';
+        await saveScriptDefaults(true);
+      } catch (error) {
+        showToast(error.message || '选择拆解结果失败', true);
       }
     }
     function escapeHtml(value) {
@@ -833,16 +1047,26 @@ INDEX_HTML = r"""<!doctype html>
       if (document.getElementById('downloadDirs')) {
         downloadDirs.innerHTML = files.download_dirs.length ? files.download_dirs.map(f => `<div class="fileitem">${openButton(f)}<span class="filemeta">${f.count} 个 mp4</span></div>`).join('') : '<div class="empty">暂无下载目录</div>';
       }
-      analysisFiles.innerHTML = files.analysis_files.length ? files.analysis_files.map(f => `<div class="fileitem">${openButton(f)}</div>`).join('') : '<div class="empty">暂无拆解结果</div>';
+      if (document.getElementById('analysisFiles')) {
+        analysisFiles.innerHTML = files.analysis_files.length ? files.analysis_files.map(f => `<div class="fileitem">${openButton(f)}</div>`).join('') : '<div class="empty">暂无拆解结果</div>';
+      }
+      if (document.getElementById('scriptAnalysisFiles')) {
+        scriptAnalysisFiles.innerHTML = files.analysis_files.length ? files.analysis_files.map(f => `<div class="fileitem">${openButton(f)}</div>`).join('') : '<div class="empty">暂无可选拆解结果</div>';
+      }
+      if (document.getElementById('scriptFiles')) {
+        scriptFiles.innerHTML = files.script_files.length ? files.script_files.map(f => `<div class="fileitem">${openButton(f)}</div>`).join('') : '<div class="empty">暂无脚本产出结果</div>';
+      }
     }
     async function refresh() {
       const st = await api('/api/status');
       dot.className = 'dot' + (st.running ? ' running' : '');
       statusText.textContent = st.running ? `运行中：${st.task}` : (st.exit_code === null ? '未运行' : `已结束：${st.exit_code}`);
       const logText = (st.logs || []).join('\n');
-      [collectLogs, analyzeLogs].forEach(el => {
-        el.textContent = logText;
-        el.scrollTop = el.scrollHeight;
+      [collectLogs, analyzeLogs, scriptLogs].forEach(el => {
+        if (el) {
+          el.textContent = logText;
+          el.scrollTop = el.scrollHeight;
+        }
       });
       renderFiles(st.files);
     }
@@ -874,7 +1098,7 @@ class Handler(BaseHTTPRequestHandler):
         path = parsed.path
         query = parse_qs(parsed.query)
         try:
-            if path in ("/", "/collect", "/product", "/analyze"):
+            if path in ("/", "/collect", "/product", "/analyze", "/script"):
                 body = INDEX_HTML.encode("utf-8")
                 self.send_response(200)
                 self.send_header("Content-Type", "text/html; charset=utf-8")
@@ -910,12 +1134,18 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, save_product_profile(self._read_json()))
             elif path == "/api/teardown-defaults":
                 self._json(200, save_teardown_defaults(self._read_json()))
+            elif path == "/api/script-defaults":
+                self._json(200, save_script_defaults(self._read_json()))
             elif path == "/api/run/full":
                 JOBS.start("一键采集", [sys.executable, "scripts/run_collection_pipeline.py"])
                 self._json(200, {"ok": True})
             elif path == "/api/run/analyze":
                 validate_analysis_input_path(load_config())
                 JOBS.start("拆解视频", [sys.executable, "scripts/analyze_video_teardown_batch.py"])
+                self._json(200, {"ok": True})
+            elif path == "/api/run/script":
+                validate_script_generation_input(load_config())
+                JOBS.start("脚本产出", [sys.executable, "scripts/generate_product_script.py"])
                 self._json(200, {"ok": True})
             elif path == "/api/open-path":
                 payload = self._read_json()
@@ -927,6 +1157,9 @@ class Handler(BaseHTTPRequestHandler):
             elif path == "/api/choose-analysis-path":
                 payload = self._read_json()
                 selected = choose_analysis_path(payload.get("kind", "folder"))
+                self._json(200, {"path": selected})
+            elif path == "/api/choose-script-reference-path":
+                selected = choose_script_reference_path()
                 self._json(200, {"path": selected})
             elif path == "/api/stop":
                 self._json(200, {"stopped": JOBS.stop()})
@@ -943,6 +1176,7 @@ def main():
     STORAGE_DIR.mkdir(exist_ok=True)
     DOWNLOAD_DIR.mkdir(exist_ok=True)
     ANALYSIS_DIR.mkdir(exist_ok=True)
+    SCRIPT_OUTPUT_DIR.mkdir(exist_ok=True)
     KNOWLEDGE_BASE_DIR.mkdir(exist_ok=True)
     server = ThreadingHTTPServer((HOST, PORT), Handler)
     url = f"http://{HOST}:{PORT}"

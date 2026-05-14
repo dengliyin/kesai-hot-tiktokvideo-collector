@@ -12,4 +12,5 @@ browser-profile/
 # Generated outputs
 downloads/
 analysis/
+script_outputs/
 app.log
