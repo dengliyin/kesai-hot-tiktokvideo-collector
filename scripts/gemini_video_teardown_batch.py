@@ -14,7 +14,6 @@ from gemini_video_teardown_test import (
 
 
 ROOT = Path(__file__).resolve().parents[1]
-DOWNLOAD_ROOT = ROOT / "downloads"
 
 
 def log(message):
@@ -25,30 +24,14 @@ def safe_output_name(value):
     return "".join(ch if ch.isalnum() or ch in ("-", "_") else "_" for ch in value).strip("_") or "videos"
 
 
-def find_latest_video_dir():
-    candidates = []
-    if not DOWNLOAD_ROOT.exists():
-        return None
-    for path in DOWNLOAD_ROOT.iterdir():
-        if path.is_dir() and list(path.glob("*.mp4")):
-            candidates.append(path)
-    if not candidates:
-        return None
-    return sorted(candidates, key=lambda p: p.stat().st_mtime, reverse=True)[0]
-
-
 def resolve_input_path(config):
     configured = str(config.get("analysis_input_path", "") or "").strip()
-    if configured:
-        path = Path(configured).expanduser().resolve()
-        if not path.exists():
-            raise SystemExit(f"拆解视频路径不存在: {path}")
-        return path
-
-    latest = find_latest_video_dir()
-    if not latest:
-        raise SystemExit("downloads/ 里没有找到包含 MP4 的视频目录")
-    return latest
+    if not configured:
+        raise SystemExit("请先在视频拆解页选择一个 MP4 视频或包含 MP4 的文件夹")
+    path = Path(configured).expanduser().resolve()
+    if not path.exists():
+        raise SystemExit(f"拆解视频路径不存在: {path}")
+    return path
 
 
 def find_videos(input_path):

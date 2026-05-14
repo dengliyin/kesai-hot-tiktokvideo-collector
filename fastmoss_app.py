@@ -120,7 +120,7 @@ def load_config():
 
 
 def save_config(config):
-    config = DEFAULT_CONFIG | config
+    config = load_config() | config
     category_path = config.get("category_path", [])
     if isinstance(category_path, str):
         category_path = [part.strip() for part in category_path.split(">") if part.strip()]
@@ -203,6 +203,20 @@ def choose_analysis_path(kind="folder"):
     return result.stdout.strip()
 
 
+def validate_analysis_input_path(config):
+    raw_path = str(config.get("analysis_input_path", "") or "").strip()
+    if not raw_path:
+        raise ValueError("请先选择要拆解的 MP4 视频或包含 MP4 的目录")
+
+    target = Path(raw_path).expanduser()
+    if not target.exists():
+        raise ValueError(f"拆解视频路径不存在: {target}")
+    if target.is_file() and target.suffix.lower() != ".mp4":
+        raise ValueError(f"选择的文件不是 MP4: {target.name}")
+    if target.is_dir() and not any(target.glob("*.mp4")):
+        raise ValueError(f"选择的目录里没有 MP4: {target}")
+
+
 def open_local_path(raw_path):
     target = Path(unquote(raw_path)).expanduser()
     if not target.exists():
@@ -243,9 +257,17 @@ INDEX_HTML = r"""<!doctype html>
     }
     * { box-sizing: border-box; }
     body { margin:0; font:14px/1.45 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",sans-serif; color:var(--text); background:var(--bg); letter-spacing:0; }
-    header { position:sticky; top:0; z-index:2; height:58px; display:flex; align-items:center; justify-content:space-between; padding:0 28px; background:rgba(255,255,255,.78); border-bottom:1px solid rgba(0,0,0,.08); backdrop-filter:saturate(180%) blur(18px); }
+    body[data-page="collect"] #analyzePage, body[data-page="analyze"] #collectPage { display:none; }
+    header { position:sticky; top:0; z-index:2; min-height:62px; display:flex; align-items:center; justify-content:space-between; gap:18px; padding:0 28px; background:rgba(255,255,255,.78); border-bottom:1px solid rgba(0,0,0,.08); backdrop-filter:saturate(180%) blur(18px); }
+    .headleft { display:flex; align-items:center; gap:22px; min-width:0; }
     h1 { margin:0; font-size:18px; font-weight:700; letter-spacing:0; }
-    main { max-width:1360px; margin:24px auto 40px; padding:0 22px; display:grid; grid-template-columns: 440px minmax(0,1fr); gap:20px; align-items:start; }
+    .nav { display:flex; gap:6px; padding:4px; border-radius:999px; background:#eef0f4; }
+    .nav a { display:inline-flex; align-items:center; min-height:32px; padding:0 13px; border-radius:999px; color:#424245; font-weight:700; text-decoration:none; white-space:nowrap; }
+    .nav a.active { background:#fff; color:var(--text); box-shadow:0 1px 3px rgba(0,0,0,.08); }
+    .page { max-width:1360px; margin:24px auto 40px; padding:0 22px; }
+    .pageintro { display:flex; align-items:flex-end; justify-content:space-between; gap:18px; margin:0 0 16px; }
+    .pageintro h2 { margin:0 0 4px; font-size:22px; }
+    .workspace { display:grid; grid-template-columns:440px minmax(0,1fr); gap:20px; align-items:start; }
     section { background:var(--panel); border:1px solid rgba(0,0,0,.08); border-radius:8px; padding:20px; box-shadow:var(--shadow); }
     h2 { font-size:16px; line-height:1.25; margin:0 0 16px; font-weight:700; }
     label { display:block; margin:13px 0 6px; color:#424245; font-size:12px; font-weight:700; }
@@ -285,23 +307,36 @@ INDEX_HTML = r"""<!doctype html>
     .filemeta { display:inline-flex; align-items:center; margin-top:5px; padding:2px 7px; border-radius:999px; background:#eef5ff; color:#315f93; font-size:12px; font-weight:600; }
     .empty { padding:14px 0; color:var(--muted); }
     .muted { color:var(--muted); font-size:13px; }
-    .pathrow { display:flex; gap:8px; align-items:center; }
-    .pathrow input { min-width:0; }
-    .pathrow button { flex:0 0 auto; }
+    .pathrow { display:grid; grid-template-columns:1fr 1fr; gap:8px; align-items:center; }
+    .pathrow input { grid-column:1 / -1; min-width:0; }
+    .pathrow button { width:100%; }
     .toast { position:fixed; top:72px; right:24px; z-index:10; max-width:360px; padding:12px 14px; border-radius:8px; background:rgba(29,29,31,.92); color:#fff; box-shadow:0 14px 36px rgba(0,0,0,.18); opacity:0; pointer-events:none; transform:translateY(-8px); transition:opacity .18s ease, transform .18s ease; }
     .toast.show { opacity:1; transform:translateY(0); }
     .toast.error { background:rgba(215,0,21,.94); }
     @media (max-width:1100px) { .files { grid-template-columns:1fr; } }
-    @media (max-width:900px) { main { grid-template-columns:1fr; } }
+    @media (max-width:900px) { header { align-items:flex-start; padding:14px 18px; flex-direction:column; } .workspace { grid-template-columns:1fr; } .pageintro { align-items:flex-start; flex-direction:column; } .page { padding:0 14px; } }
   </style>
 </head>
-<body>
+<body data-page="collect">
   <header>
-    <h1>科赛力量爆款收集专家</h1>
+    <div class="headleft">
+      <h1>科赛力量爆款收集专家</h1>
+      <nav class="nav" aria-label="功能页面">
+        <a id="collectNav" href="/collect">爆款采集</a>
+        <a id="analyzeNav" href="/analyze">视频拆解</a>
+      </nav>
+    </div>
     <div class="status"><span id="dot" class="dot"></span><span id="statusText">未运行</span></div>
   </header>
   <div id="toast" class="toast"></div>
-  <main>
+  <main id="collectPage" class="page">
+    <div class="pageintro">
+      <div>
+        <h2>爆款采集</h2>
+        <p class="muted">按关键词、国家和三级类目采集商品关联视频，并自动下载视频素材。</p>
+      </div>
+    </div>
+    <div class="workspace">
     <section>
       <h2>任务参数</h2>
       <label>手机号</label>
@@ -325,7 +360,32 @@ INDEX_HTML = r"""<!doctype html>
         <button class="danger" onclick="stopTask()">停止任务</button>
       </div>
       <p class="muted">默认启动后最小化浏览器窗口，你只看日志。遇到验证码或滑块时，勾选「显示浏览器窗口」后重新运行，手动完成验证即可。</p>
-      <div class="divider"></div>
+    </section>
+    <section>
+      <h2>运行日志</h2>
+      <pre id="collectLogs"></pre>
+      <div class="files">
+        <div class="filebox">
+          <h2>CSV 输出</h2>
+          <div id="csvFiles" class="muted">加载中...</div>
+        </div>
+        <div class="filebox">
+          <h2>视频下载目录</h2>
+          <div id="downloadDirs" class="muted">加载中...</div>
+        </div>
+      </div>
+    </section>
+    </div>
+  </main>
+  <main id="analyzePage" class="page">
+    <div class="pageintro">
+      <div>
+        <h2>视频拆解</h2>
+        <p class="muted">选择本地 MP4 或包含 MP4 的目录，用保存的模型和提示词拆解爆款视频。</p>
+      </div>
+    </div>
+    <div class="workspace">
+    <section>
       <div class="sectionhead">
         <h2>视频拆解默认设置</h2>
         <span class="filemeta">本地保存</span>
@@ -344,7 +404,7 @@ INDEX_HTML = r"""<!doctype html>
       <input id="modelmesh_base_url" />
       <label>拆解视频路径</label>
       <div class="pathrow">
-        <input id="analysis_input_path" placeholder="留空时自动使用最新下载目录" />
+        <input id="analysis_input_path" placeholder="请选择 MP4 视频或包含 MP4 的目录" />
         <button onclick="chooseAnalysisPath('folder')">选择目录</button>
         <button onclick="chooseAnalysisPath('file')">选择视频</button>
       </div>
@@ -353,29 +413,28 @@ INDEX_HTML = r"""<!doctype html>
       <div class="buttons">
         <button class="primary" onclick="saveTeardownDefaults()">保存默认设置</button>
         <button class="blue" onclick="startTask('analyze')">拆解视频</button>
+        <button class="danger" onclick="stopTask()">停止任务</button>
       </div>
-      <p class="muted">选择目录时会拆解目录下全部 MP4；选择单个视频时只拆解该视频。API Key 和提示词只保存在本地配置文件，不会提交到 GitHub。</p>
+      <p class="muted">选择目录时会拆解目录下全部 MP4；选择单个视频时只拆解该视频。拆解功能不会自动读取采集下载目录。</p>
     </section>
     <section>
       <h2>运行日志</h2>
-      <pre id="logs"></pre>
+      <pre id="analyzeLogs"></pre>
       <div class="files">
-        <div class="filebox">
-          <h2>CSV 输出</h2>
-          <div id="csvFiles" class="muted">加载中...</div>
-        </div>
-        <div class="filebox">
-          <h2>视频下载目录</h2>
-          <div id="downloadDirs" class="muted">加载中...</div>
-        </div>
         <div class="filebox">
           <h2>视频拆解结果</h2>
           <div id="analysisFiles" class="muted">加载中...</div>
         </div>
       </div>
     </section>
+    </div>
   </main>
   <script>
+    const currentPage = location.pathname === '/analyze' ? 'analyze' : 'collect';
+    document.body.dataset.page = currentPage;
+    collectNav.classList.toggle('active', currentPage === 'collect');
+    analyzeNav.classList.toggle('active', currentPage === 'analyze');
+
     async function api(path, options={}) {
       const res = await fetch(path, {headers:{'Content-Type':'application/json'}, ...options});
       const data = await res.json();
@@ -407,12 +466,7 @@ INDEX_HTML = r"""<!doctype html>
         category_path: category_path.value.split('>').map(x => x.trim()).filter(Boolean),
         product_limit: Number(product_limit.value || 3),
         videos_per_product: Number(videos_per_product.value || 20),
-        show_browser: show_browser.checked,
-        modelmesh_api_key: modelmesh_api_key.value.trim(),
-        modelmesh_base_url: modelmesh_base_url.value.trim(),
-        video_analysis_model: video_analysis_model.value,
-        analysis_input_path: analysis_input_path.value.trim(),
-        video_analysis_prompt: video_analysis_prompt.value
+        show_browser: show_browser.checked
       };
       await api('/api/config', {method:'POST', body:JSON.stringify(payload)});
       await refresh();
@@ -431,22 +485,34 @@ INDEX_HTML = r"""<!doctype html>
       if (!silent) alert('视频拆解默认设置已保存到本地');
     }
     async function startTask(task) {
-      if (task === 'analyze') {
-        await saveTeardownDefaults(true);
-      } else {
-        await saveConfig(true);
+      try {
+        if (task === 'analyze') {
+          if (!analysis_input_path.value.trim()) {
+            showToast('请先选择要拆解的 MP4 视频或包含 MP4 的目录', true);
+            return;
+          }
+          await saveTeardownDefaults(true);
+        } else {
+          await saveConfig(true);
+        }
+        await api('/api/run/' + task, {method:'POST', body:'{}'});
+        await refresh();
+      } catch (error) {
+        showToast(error.message || '任务启动失败', true);
       }
-      await api('/api/run/' + task, {method:'POST', body:'{}'});
-      await refresh();
     }
     async function stopTask() {
       await api('/api/stop', {method:'POST', body:'{}'});
       await refresh();
     }
     async function chooseAnalysisPath(kind) {
-      const res = await api('/api/choose-analysis-path', {method:'POST', body:JSON.stringify({kind})});
-      analysis_input_path.value = res.path || '';
-      await saveConfig(true);
+      try {
+        const res = await api('/api/choose-analysis-path', {method:'POST', body:JSON.stringify({kind})});
+        analysis_input_path.value = res.path || '';
+        await saveTeardownDefaults(true);
+      } catch (error) {
+        showToast(error.message || '选择路径失败', true);
+      }
     }
     function escapeHtml(value) {
       return String(value).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
@@ -471,16 +537,23 @@ INDEX_HTML = r"""<!doctype html>
       return `<button class="filelink filebutton" type="button" data-path="${encodedPath}" onclick="openLocalPath(decodeURIComponent(this.dataset.path))" title="${escapeHtml(file.path)}">${name}</button>`;
     }
     function renderFiles(files) {
-      csvFiles.innerHTML = files.csv_files.length ? files.csv_files.map(f => `<div class="fileitem">${openButton(f)}</div>`).join('') : '<div class="empty">暂无 CSV</div>';
-      downloadDirs.innerHTML = files.download_dirs.length ? files.download_dirs.map(f => `<div class="fileitem">${openButton(f)}<span class="filemeta">${f.count} 个 mp4</span></div>`).join('') : '<div class="empty">暂无下载目录</div>';
+      if (document.getElementById('csvFiles')) {
+        csvFiles.innerHTML = files.csv_files.length ? files.csv_files.map(f => `<div class="fileitem">${openButton(f)}</div>`).join('') : '<div class="empty">暂无 CSV</div>';
+      }
+      if (document.getElementById('downloadDirs')) {
+        downloadDirs.innerHTML = files.download_dirs.length ? files.download_dirs.map(f => `<div class="fileitem">${openButton(f)}<span class="filemeta">${f.count} 个 mp4</span></div>`).join('') : '<div class="empty">暂无下载目录</div>';
+      }
       analysisFiles.innerHTML = files.analysis_files.length ? files.analysis_files.map(f => `<div class="fileitem">${openButton(f)}</div>`).join('') : '<div class="empty">暂无拆解结果</div>';
     }
     async function refresh() {
       const st = await api('/api/status');
       dot.className = 'dot' + (st.running ? ' running' : '');
       statusText.textContent = st.running ? `运行中：${st.task}` : (st.exit_code === null ? '未运行' : `已结束：${st.exit_code}`);
-      logs.textContent = (st.logs || []).join('\n');
-      logs.scrollTop = logs.scrollHeight;
+      const logText = (st.logs || []).join('\n');
+      [collectLogs, analyzeLogs].forEach(el => {
+        el.textContent = logText;
+        el.scrollTop = el.scrollHeight;
+      });
       renderFiles(st.files);
     }
     loadConfig().then(refresh);
@@ -511,7 +584,7 @@ class Handler(BaseHTTPRequestHandler):
         path = parsed.path
         query = parse_qs(parsed.query)
         try:
-            if path == "/":
+            if path in ("/", "/collect", "/analyze"):
                 body = INDEX_HTML.encode("utf-8")
                 self.send_response(200)
                 self.send_header("Content-Type", "text/html; charset=utf-8")
@@ -547,6 +620,7 @@ class Handler(BaseHTTPRequestHandler):
                 JOBS.start("一键采集", [sys.executable, "scripts/full_pipeline.py"])
                 self._json(200, {"ok": True})
             elif path == "/api/run/analyze":
+                validate_analysis_input_path(load_config())
                 JOBS.start("拆解视频", [sys.executable, "scripts/gemini_video_teardown_batch.py"])
                 self._json(200, {"ok": True})
             elif path == "/api/open-path":

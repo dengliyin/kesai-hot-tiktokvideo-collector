@@ -46,7 +46,8 @@ The app stores parameters in `fastmoss_config.json`. This file contains local cr
 http://127.0.0.1:8765
 ```
 
-5. For a direct command-line run, execute the full pipeline:
+5. The app has separate pages under the same local entry: `/collect` for collection/download and `/analyze` for Gemini video teardown.
+6. For a direct command-line run, execute the full pipeline:
 
 ```bash
 python3 scripts/full_pipeline.py
@@ -83,7 +84,7 @@ The Gemini teardown test phase:
 - Calls the Shengsuanyun/ModelMesh Gemini-compatible endpoint with a local MP4 as base64 inline video.
 - Uses `google/gemini-3-flash` by default.
 - Writes Markdown and raw JSON results to local `analysis/`.
-- The Web UI has a "视频拆解默认设置" area for editing and locally saving the API key, model, teardown prompt, and a manual video path. The path can be a directory of MP4 files or a single MP4 file; directories are analyzed in full, single files are analyzed alone, and an empty path uses the latest download directory.
+- The Web UI has a separate "视频拆解" page for editing and locally saving the API key, model, teardown prompt, and a manual video path. The path can be a directory of MP4 files or a single MP4 file; directories are analyzed in full, single files are analyzed alone, and the path is required. The teardown page does not automatically use collection download folders.
 
 Run a single-video minimal test with:
 
@@ -91,7 +92,7 @@ Run a single-video minimal test with:
 python3 scripts/gemini_video_teardown_test.py /path/to/video.mp4
 ```
 
-Run batch teardown for the latest download directory with:
+Run batch teardown for the saved `analysis_input_path` with:
 
 ```bash
 python3 scripts/gemini_video_teardown_batch.py
