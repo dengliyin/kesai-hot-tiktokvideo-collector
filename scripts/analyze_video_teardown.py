@@ -13,7 +13,8 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-CONFIG_PATH = ROOT / "fastmoss_config.json"
+CONFIG_PATH = ROOT / "app_config.json"
+LEGACY_CONFIG_PATH = ROOT / "fastmoss_config.json"
 OUTPUT_ROOT = ROOT / "analysis"
 
 DEFAULT_MODEL = "google/gemini-3-flash"
@@ -31,8 +32,9 @@ def log(message):
 
 
 def load_config():
-    if CONFIG_PATH.exists():
-        with CONFIG_PATH.open(encoding="utf-8") as f:
+    config_path = CONFIG_PATH if CONFIG_PATH.exists() else LEGACY_CONFIG_PATH
+    if config_path.exists():
+        with config_path.open(encoding="utf-8") as f:
             return json.load(f)
     return {}
 
@@ -133,7 +135,7 @@ def endpoint_variants(base_url, model):
 def analyze_video(video_path, config, args):
     api_key = get_api_key(config)
     if not api_key:
-        raise SystemExit("缺少 API Key：请设置 MODELMESH_API_KEY，或在 fastmoss_config.json 写入 modelmesh_api_key")
+        raise SystemExit("缺少 API Key：请设置 MODELMESH_API_KEY，或在 app_config.json 写入 modelmesh_api_key")
 
     model = args.model or config.get("video_analysis_model") or DEFAULT_MODEL
     base_url = args.base_url or config.get("modelmesh_base_url") or DEFAULT_BASE_URL

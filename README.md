@@ -7,13 +7,13 @@
 第一次使用时，可以从示例配置创建本地配置：
 
 ```bash
-cp fastmoss_config.example.json fastmoss_config.json
+cp app_config.example.json app_config.json
 ```
 
-`fastmoss_config.json` 会保存账号密码和任务参数，只保留在本机，不会提交到 Git。
+`app_config.json` 会保存账号密码和任务参数，只保留在本机，不会提交到 Git。
 
 ```bash
-./run_fastmoss_app.sh
+./run_kesai_app.sh
 ```
 
 启动后会自动打开：
@@ -37,7 +37,7 @@ http://127.0.0.1:8765
 
 同一个本地入口里有独立的「产品信息」页面，用来保存你的产品资料，后续可以和竞品爆款视频拆解结果一起用于仿写带货脚本。
 
-产品信息只保存在本地 `fastmoss_config.json` 的 `product_profile` 字段，不会提交到 Git。字段结构按产品资料 Markdown 调整，包括基础识别、定价策略、TOP 3 核心卖点、目标人群 × 痛点矩阵、核心痛点与转化话术、TikTok 营销推广切入点、市场关键词参考、适配素材类型建议和补充备注。
+产品信息只保存在本地 `app_config.json` 的 `product_profile` 字段，不会提交到 Git。字段结构按产品资料 Markdown 调整，包括基础识别、定价策略、TOP 3 核心卖点、目标人群 × 痛点矩阵、核心痛点与转化话术、TikTok 营销推广切入点、市场关键词参考、适配素材类型建议和补充备注。
 
 ## 输出命名
 
@@ -65,7 +65,7 @@ TikTok视频ID.mp4
 
 「拆解视频路径」可以手动填写，也可以点击「选择目录」批量拆解一个目录，或点击「选择视频」单独拆解一个 MP4。视频拆解和爆款采集互相独立，路径不能为空，也不会自动使用采集下载目录。
 
-点击「保存默认设置」后，这些字段只保存在本地 `fastmoss_config.json`，不要提交到 Git：
+点击「保存默认设置」后，这些字段只保存在本地 `app_config.json`，不要提交到 Git：
 
 ```json
 {
@@ -80,13 +80,13 @@ TikTok视频ID.mp4
 按已保存的 `analysis_input_path` 批量拆解：
 
 ```bash
-python3 scripts/gemini_video_teardown_batch.py
+python3 scripts/analyze_video_teardown_batch.py
 ```
 
 对单个 MP4 做最小测试：
 
 ```bash
-python3 scripts/gemini_video_teardown_test.py /path/to/video.mp4
+python3 scripts/analyze_video_teardown.py /path/to/video.mp4
 ```
 
 结果会输出到本地 `analysis/`，该目录不会提交到 Git。`analysis_input_path` 是目录时会拆解目录下全部 MP4，是单个 MP4 文件时只拆解该视频。

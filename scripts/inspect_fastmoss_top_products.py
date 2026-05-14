@@ -9,14 +9,16 @@ from playwright.sync_api import sync_playwright
 
 
 ROOT = Path(__file__).resolve().parents[1]
-CONFIG_PATH = ROOT / "fastmoss_config.json"
+CONFIG_PATH = ROOT / "app_config.json"
+LEGACY_CONFIG_PATH = ROOT / "fastmoss_config.json"
 STORAGE_STATE = ROOT / "storage" / "fastmoss-state.json"
 SEARCH_URL = "https://www.fastmoss.com/zh/e-commerce/search"
 
 
 def load_config():
-    if CONFIG_PATH.exists():
-        with CONFIG_PATH.open(encoding="utf-8") as f:
+    config_path = CONFIG_PATH if CONFIG_PATH.exists() else LEGACY_CONFIG_PATH
+    if config_path.exists():
+        with config_path.open(encoding="utf-8") as f:
             return json.load(f)
     return {
         "keyword": "",

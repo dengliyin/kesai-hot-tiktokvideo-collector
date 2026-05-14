@@ -2,4 +2,4 @@
 set -euo pipefail
 
 cd "$(dirname "$0")"
-python3 fastmoss_app.py
+python3 kesai_app.py

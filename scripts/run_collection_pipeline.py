@@ -22,10 +22,10 @@ def run_step(name, script):
 
 def main():
     print("一键采集流程开始：先采集表格和 URL，再下载视频", flush=True)
-    code = run_step("第一阶段：采集表格和 URL", "scripts/fastmoss_test_video_urls.py")
+    code = run_step("第一阶段：采集表格和 URL", "scripts/collect_fastmoss_product_videos.py")
     if code != 0:
         return code
-    code = run_step("第二阶段：下载视频", "scripts/kolsprite_download_videos.py")
+    code = run_step("第二阶段：下载视频", "scripts/download_tiktok_videos_kolsprite.py")
     if code != 0:
         return code
     print("一键采集流程完成：CSV 和视频均已生成", flush=True)

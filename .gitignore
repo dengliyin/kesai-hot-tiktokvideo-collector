@@ -3,6 +3,7 @@ __pycache__/
 *.pyc
 
 # Local secrets and login/session state
+app_config.json
 fastmoss_config.json
 storage/
 browser-profile/

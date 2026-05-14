@@ -15,7 +15,7 @@ The canonical project root on this machine is:
 /Users/kesai1/Documents/New project
 ```
 
-If the current workspace contains `fastmoss_app.py`, prefer the current workspace as the project root.
+If the current workspace contains `kesai_app.py`, prefer the current workspace as the project root.
 
 ## Required Parameters
 
@@ -28,16 +28,16 @@ Collect or confirm these values before running a new task:
 - Product link count.
 - Video count per product.
 
-The app stores parameters in `fastmoss_config.json`. This file contains local credentials and must not be committed or printed back verbatim.
+The app stores parameters in `app_config.json`. This file contains local credentials and must not be committed or printed back verbatim.
 
 ## Main Workflow
 
-1. Open or update `fastmoss_config.json` with the requested parameters. Use `fastmoss_config.example.json` as the schema if the config file does not exist.
+1. Open or update `app_config.json` with the requested parameters. Use `app_config.example.json` as the schema if the config file does not exist.
 2. Keep `show_browser` as `false` by default. The automation opens Chrome for Testing and minimizes it so the user mainly watches logs.
 3. Run the local web app when the user wants a visible control panel:
 
 ```bash
-./run_fastmoss_app.sh
+./run_kesai_app.sh
 ```
 
 4. The app opens at:
@@ -50,10 +50,10 @@ http://127.0.0.1:8765
 6. For a direct command-line run, execute the full pipeline:
 
 ```bash
-python3 scripts/full_pipeline.py
+python3 scripts/run_collection_pipeline.py
 ```
 
-The full pipeline first runs `scripts/fastmoss_test_video_urls.py`, then `scripts/kolsprite_download_videos.py`.
+The full pipeline first runs `scripts/collect_fastmoss_product_videos.py`, then `scripts/download_tiktok_videos_kolsprite.py`.
 
 ## What The Collector Does
 
@@ -80,7 +80,7 @@ The download phase:
 
 The Gemini teardown test phase:
 
-- Reads `modelmesh_api_key`, `modelmesh_base_url`, `video_analysis_model`, `analysis_input_path`, and `video_analysis_prompt` from local `fastmoss_config.json` or environment variables.
+- Reads `modelmesh_api_key`, `modelmesh_base_url`, `video_analysis_model`, `analysis_input_path`, and `video_analysis_prompt` from local `app_config.json` or environment variables.
 - Calls the Shengsuanyun/ModelMesh Gemini-compatible endpoint with a local MP4 as base64 inline video.
 - Uses `google/gemini-3-flash` by default.
 - Writes Markdown and raw JSON results to local `analysis/`.
@@ -89,20 +89,20 @@ The Gemini teardown test phase:
 The product profile phase:
 
 - The Web UI has a separate "产品信息" page for saving the user's product context locally.
-- Product profile data is stored under `product_profile` in `fastmoss_config.json`.
+- Product profile data is stored under `product_profile` in `app_config.json`.
 - Product profile fields follow the product Markdown structure: basic identification, pricing strategy, top 3 selling points, audience x pain matrix, pain/conversion talk tracks, TikTok marketing angles, market keywords, material type suggestions, and notes.
 - Treat product profile content as local business context. Do not commit real product details unless the user explicitly provides sanitized examples for documentation.
 
 Run a single-video minimal test with:
 
 ```bash
-python3 scripts/gemini_video_teardown_test.py /path/to/video.mp4
+python3 scripts/analyze_video_teardown.py /path/to/video.mp4
 ```
 
 Run batch teardown for the saved `analysis_input_path` with:
 
 ```bash
-python3 scripts/gemini_video_teardown_batch.py
+python3 scripts/analyze_video_teardown_batch.py
 ```
 
 ## Outputs
@@ -132,7 +132,7 @@ TikTok视频ID.mp4
 
 ## Safety Rules
 
-- Never commit `fastmoss_config.json`, `storage/`, `browser-profile/`, `downloads/`, `app.log`, or generated MP4/CSV files.
+- Never commit `app_config.json`, `fastmoss_config.json`, `storage/`, `browser-profile/`, `downloads/`, `app.log`, or generated MP4/CSV files.
 - Never commit `analysis/`, model API keys, or the user's proprietary teardown prompt.
 - Never commit real task keywords in examples, defaults, docs, or skill text. Use an empty value or a generic placeholder.
 - Do not print the saved FastMoss password in final responses or logs beyond what the app already masks in its UI.

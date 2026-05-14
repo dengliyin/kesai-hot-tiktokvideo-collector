@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 from types import SimpleNamespace
 
-from gemini_video_teardown_test import (
+from analyze_video_teardown import (
     DEFAULT_BASE_URL,
     DEFAULT_MODEL,
     OUTPUT_ROOT,

@@ -13,12 +13,13 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 
 ROOT = Path(__file__).resolve().parent
-CONFIG_PATH = ROOT / "fastmoss_config.json"
+CONFIG_PATH = ROOT / "app_config.json"
+LEGACY_CONFIG_PATH = ROOT / "fastmoss_config.json"
 STORAGE_DIR = ROOT / "storage"
 DOWNLOAD_DIR = ROOT / "downloads"
 ANALYSIS_DIR = ROOT / "analysis"
 HOST = "127.0.0.1"
-PORT = int(os.environ.get("FASTMOSS_APP_PORT", "8765"))
+PORT = int(os.environ.get("KESAI_APP_PORT", "8765"))
 
 PRODUCT_PROFILE_FIELDS = [
     "market",
@@ -142,8 +143,9 @@ JOBS = JobManager()
 
 
 def load_config():
-    if CONFIG_PATH.exists():
-        with CONFIG_PATH.open(encoding="utf-8") as f:
+    config_path = CONFIG_PATH if CONFIG_PATH.exists() else LEGACY_CONFIG_PATH
+    if config_path.exists():
+        with config_path.open(encoding="utf-8") as f:
             config = json.load(f)
         merged = DEFAULT_CONFIG | config
         merged["product_profile"] = normalize_product_profile(merged.get("product_profile", {}))
@@ -581,7 +583,7 @@ INDEX_HTML = r"""<!doctype html>
         <span class="filemeta">本地保存</span>
       </div>
       <label>ModelMesh API Key</label>
-      <input id="modelmesh_api_key" type="password" autocomplete="off" placeholder="只保存在本地 fastmoss_config.json" />
+      <input id="modelmesh_api_key" type="password" autocomplete="off" placeholder="只保存在本地 app_config.json" />
       <label>拆解模型</label>
       <select id="video_analysis_model">
         <option value="google/gemini-3-flash">Gemini 3 Flash Preview</option>
@@ -849,11 +851,11 @@ class Handler(BaseHTTPRequestHandler):
             elif path == "/api/teardown-defaults":
                 self._json(200, save_teardown_defaults(self._read_json()))
             elif path == "/api/run/full":
-                JOBS.start("一键采集", [sys.executable, "scripts/full_pipeline.py"])
+                JOBS.start("一键采集", [sys.executable, "scripts/run_collection_pipeline.py"])
                 self._json(200, {"ok": True})
             elif path == "/api/run/analyze":
                 validate_analysis_input_path(load_config())
-                JOBS.start("拆解视频", [sys.executable, "scripts/gemini_video_teardown_batch.py"])
+                JOBS.start("拆解视频", [sys.executable, "scripts/analyze_video_teardown_batch.py"])
                 self._json(200, {"ok": True})
             elif path == "/api/open-path":
                 payload = self._read_json()
