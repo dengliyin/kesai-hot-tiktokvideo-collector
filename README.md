@@ -65,6 +65,14 @@ TikTok视频ID.mp4
 
 「拆解视频路径」可以手动填写，也可以点击「选择目录」批量拆解一个目录，或点击「选择视频」单独拆解一个 MP4。视频拆解和爆款采集互相独立，路径不能为空，也不会自动使用采集下载目录。
 
+视频拆解会同时读取本地知识库文件：
+
+```text
+knowledge_base/video_teardown_knowledge_base.md
+```
+
+这份文件用于保存爆款视频拆解的长期方法论和判断标准，只保存在本机，不会提交到 Git。它只服务于“拆解竞品视频”；产品信息仍然保存在 `product_profile`，留给后续仿写脚本阶段调用。
+
 点击「保存默认设置」后，这些字段只保存在本地 `app_config.json`，不要提交到 Git：
 
 ```json
@@ -73,6 +81,8 @@ TikTok视频ID.mp4
   "modelmesh_base_url": "https://router.shengsuanyun.com/api",
   "video_analysis_model": "google/gemini-3-flash",
   "video_analysis_prompt": "",
+  "video_teardown_knowledge_base_path": "knowledge_base/video_teardown_knowledge_base.md",
+  "video_analysis_max_output_tokens": 32768,
   "analysis_input_path": ""
 }
 ```

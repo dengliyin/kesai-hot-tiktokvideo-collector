@@ -18,6 +18,8 @@ LEGACY_CONFIG_PATH = ROOT / "fastmoss_config.json"
 STORAGE_DIR = ROOT / "storage"
 DOWNLOAD_DIR = ROOT / "downloads"
 ANALYSIS_DIR = ROOT / "analysis"
+KNOWLEDGE_BASE_DIR = ROOT / "knowledge_base"
+DEFAULT_TEARDOWN_KNOWLEDGE_BASE_PATH = KNOWLEDGE_BASE_DIR / "video_teardown_knowledge_base.md"
 HOST = "127.0.0.1"
 PORT = int(os.environ.get("KESAI_APP_PORT", "8765"))
 
@@ -64,6 +66,7 @@ DEFAULT_CONFIG = {
     "modelmesh_base_url": "https://router.shengsuanyun.com/api",
     "video_analysis_model": "google/gemini-3-flash",
     "video_analysis_prompt": "",
+    "video_teardown_knowledge_base_path": "knowledge_base/video_teardown_knowledge_base.md",
     "video_analysis_max_output_tokens": 32768,
     "analysis_input_path": "",
     "product_profile": DEFAULT_PRODUCT_PROFILE.copy(),
@@ -180,11 +183,51 @@ def save_config(config):
     config["modelmesh_base_url"] = str(config.get("modelmesh_base_url", DEFAULT_CONFIG["modelmesh_base_url"])).strip()
     config["video_analysis_model"] = str(config.get("video_analysis_model", DEFAULT_CONFIG["video_analysis_model"])).strip()
     config["video_analysis_prompt"] = str(config.get("video_analysis_prompt", ""))
+    config["video_teardown_knowledge_base_path"] = str(
+        config.get("video_teardown_knowledge_base_path", DEFAULT_CONFIG["video_teardown_knowledge_base_path"])
+    ).strip()
     config["video_analysis_max_output_tokens"] = int(config.get("video_analysis_max_output_tokens", 32768))
     config["analysis_input_path"] = str(config.get("analysis_input_path", "")).strip()
     config["product_profile"] = normalize_product_profile(config.get("product_profile", {}))
     config.pop("analysis_video_limit", None)
     CONFIG_PATH.write_text(json.dumps(config, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return config
+
+
+def resolve_project_path(raw_path, default_path=None):
+    raw_path = str(raw_path or "").strip()
+    if not raw_path and default_path:
+        return default_path.resolve()
+    path = Path(raw_path).expanduser()
+    if not path.is_absolute():
+        path = ROOT / path
+    return path.resolve()
+
+
+def resolve_teardown_knowledge_base_path(config):
+    return resolve_project_path(
+        config.get("video_teardown_knowledge_base_path", DEFAULT_CONFIG["video_teardown_knowledge_base_path"]),
+        DEFAULT_TEARDOWN_KNOWLEDGE_BASE_PATH,
+    )
+
+
+def read_teardown_knowledge_base(config):
+    path = resolve_teardown_knowledge_base_path(config)
+    if not path.exists():
+        return ""
+    return path.read_text(encoding="utf-8")
+
+
+def write_teardown_knowledge_base(config, text):
+    path = resolve_teardown_knowledge_base_path(config)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(str(text or "").rstrip() + "\n", encoding="utf-8")
+    return path
+
+
+def config_payload():
+    config = load_config()
+    config["video_teardown_knowledge_base"] = read_teardown_knowledge_base(config)
     return config
 
 
@@ -198,6 +241,14 @@ def save_teardown_defaults(payload):
         payload.get("video_analysis_model", config.get("video_analysis_model", DEFAULT_CONFIG["video_analysis_model"]))
     ).strip()
     config["video_analysis_prompt"] = str(payload.get("video_analysis_prompt", config.get("video_analysis_prompt", "")))
+    config["video_teardown_knowledge_base_path"] = str(
+        payload.get(
+            "video_teardown_knowledge_base_path",
+            config.get("video_teardown_knowledge_base_path", DEFAULT_CONFIG["video_teardown_knowledge_base_path"]),
+        )
+    ).strip()
+    if "video_teardown_knowledge_base" in payload:
+        write_teardown_knowledge_base(config, payload.get("video_teardown_knowledge_base", ""))
     if "analysis_input_path" in payload:
         config["analysis_input_path"] = str(payload.get("analysis_input_path", config.get("analysis_input_path", ""))).strip()
     config["video_analysis_max_output_tokens"] = int(config.get("video_analysis_max_output_tokens", 32768))
@@ -337,6 +388,7 @@ INDEX_HTML = r"""<!doctype html>
     input:focus, select:focus, textarea:focus { border-color:var(--accent); background:#fff; box-shadow:0 0 0 4px rgba(0,113,227,.12); }
     textarea { min-height:78px; resize:vertical; }
     textarea.prompt { min-height:260px; font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",sans-serif; }
+    textarea.knowledge { min-height:220px; font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",sans-serif; }
     textarea.tall { min-height:120px; }
     .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
     .buttons { display:flex; flex-wrap:wrap; gap:10px; margin-top:16px; }
@@ -594,12 +646,16 @@ INDEX_HTML = r"""<!doctype html>
       </select>
       <label>接口 Base URL</label>
       <input id="modelmesh_base_url" />
+      <label>视频拆解知识库文件</label>
+      <input id="video_teardown_knowledge_base_path" placeholder="knowledge_base/video_teardown_knowledge_base.md" />
       <label>拆解视频路径</label>
       <div class="pathrow">
         <input id="analysis_input_path" placeholder="请选择 MP4 视频或包含 MP4 的目录" />
         <button onclick="chooseAnalysisPath('folder')">选择目录</button>
         <button onclick="chooseAnalysisPath('file')">选择视频</button>
       </div>
+      <label>视频拆解知识库</label>
+      <textarea id="video_teardown_knowledge_base" class="knowledge" placeholder="这里会读取本地视频拆解知识库；可直接修改后保存。"></textarea>
       <label>爆款视频拆解提示词</label>
       <textarea id="video_analysis_prompt" class="prompt" placeholder="粘贴或修改你的爆款视频拆解提示词；留空时使用最小测试提示词"></textarea>
       <div class="buttons">
@@ -607,7 +663,7 @@ INDEX_HTML = r"""<!doctype html>
         <button class="blue" onclick="startTask('analyze')">拆解视频</button>
         <button class="danger" onclick="stopTask()">停止任务</button>
       </div>
-      <p class="muted">选择目录时会拆解目录下全部 MP4；选择单个视频时只拆解该视频。拆解功能不会自动读取采集下载目录。</p>
+      <p class="muted">选择目录时会拆解目录下全部 MP4；选择单个视频时只拆解该视频。知识库负责提供拆解判断标准，产品信息留给后续脚本仿写使用。</p>
     </section>
     <section>
       <h2>运行日志</h2>
@@ -666,6 +722,8 @@ INDEX_HTML = r"""<!doctype html>
       modelmesh_api_key.value = cfg.modelmesh_api_key || '';
       modelmesh_base_url.value = cfg.modelmesh_base_url || 'https://router.shengsuanyun.com/api';
       video_analysis_model.value = cfg.video_analysis_model || 'google/gemini-3-flash';
+      video_teardown_knowledge_base_path.value = cfg.video_teardown_knowledge_base_path || 'knowledge_base/video_teardown_knowledge_base.md';
+      video_teardown_knowledge_base.value = cfg.video_teardown_knowledge_base || '';
       analysis_input_path.value = cfg.analysis_input_path || '';
       video_analysis_prompt.value = cfg.video_analysis_prompt || '';
       const profile = cfg.product_profile || {};
@@ -694,6 +752,8 @@ INDEX_HTML = r"""<!doctype html>
         modelmesh_api_key: modelmesh_api_key.value.trim(),
         modelmesh_base_url: modelmesh_base_url.value.trim(),
         video_analysis_model: video_analysis_model.value,
+        video_teardown_knowledge_base_path: video_teardown_knowledge_base_path.value.trim(),
+        video_teardown_knowledge_base: video_teardown_knowledge_base.value,
         analysis_input_path: analysis_input_path.value.trim(),
         video_analysis_prompt: video_analysis_prompt.value
       };
@@ -822,7 +882,7 @@ class Handler(BaseHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(body)
             elif path == "/api/config":
-                self._json(200, load_config())
+                self._json(200, config_payload())
             elif path == "/api/product-profile":
                 self._json(200, load_config().get("product_profile", DEFAULT_PRODUCT_PROFILE))
             elif path == "/api/status":
@@ -883,6 +943,7 @@ def main():
     STORAGE_DIR.mkdir(exist_ok=True)
     DOWNLOAD_DIR.mkdir(exist_ok=True)
     ANALYSIS_DIR.mkdir(exist_ok=True)
+    KNOWLEDGE_BASE_DIR.mkdir(exist_ok=True)
     server = ThreadingHTTPServer((HOST, PORT), Handler)
     url = f"http://{HOST}:{PORT}"
     print(f"科赛力量爆款收集专家已启动: {url}")

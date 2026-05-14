@@ -65,6 +65,7 @@ def main():
         base_url=config.get("modelmesh_base_url") or DEFAULT_BASE_URL,
         prompt="",
         prompt_file="",
+        knowledge_file="",
         timeout=240,
         max_output_tokens=int(config.get("video_analysis_max_output_tokens", 32768) or 32768),
     )
