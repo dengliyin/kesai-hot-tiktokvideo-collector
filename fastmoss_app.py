@@ -21,20 +21,34 @@ HOST = "127.0.0.1"
 PORT = int(os.environ.get("FASTMOSS_APP_PORT", "8765"))
 
 PRODUCT_PROFILE_FIELDS = [
-    "name",
+    "market",
+    "collection_date",
+    "product_name",
+    "english_name",
     "category",
-    "target_audience",
-    "pain_points",
-    "selling_points",
-    "differentiators",
-    "usage_scenarios",
-    "price_offer",
-    "proof_points",
-    "tone",
-    "forbidden_claims",
+    "spec",
+    "colors",
+    "action_time",
+    "regular_price",
+    "promo_price",
+    "top_selling_points",
+    "audience_pain_matrix",
+    "pain_conversion_talk_tracks",
+    "tiktok_marketing_angles",
+    "market_keywords",
+    "material_type_suggestions",
     "notes",
 ]
 DEFAULT_PRODUCT_PROFILE = {field: "" for field in PRODUCT_PROFILE_FIELDS}
+LEGACY_PRODUCT_PROFILE_ALIASES = {
+    "product_name": "name",
+    "top_selling_points": "selling_points",
+    "audience_pain_matrix": "target_audience",
+    "pain_conversion_talk_tracks": "pain_points",
+    "tiktok_marketing_angles": "usage_scenarios",
+    "promo_price": "price_offer",
+    "material_type_suggestions": "tone",
+}
 
 DEFAULT_CONFIG = {
     "phone": "",
@@ -140,7 +154,13 @@ def load_config():
 def normalize_product_profile(profile):
     if not isinstance(profile, dict):
         profile = {}
-    return {field: str(profile.get(field, "") or "") for field in PRODUCT_PROFILE_FIELDS}
+    normalized = {}
+    for field in PRODUCT_PROFILE_FIELDS:
+        value = profile.get(field, "")
+        if not value and field in LEGACY_PRODUCT_PROFILE_ALIASES:
+            value = profile.get(LEGACY_PRODUCT_PROFILE_ALIASES[field], "")
+        normalized[field] = str(value or "")
+    return normalized
 
 
 def save_config(config):
@@ -350,6 +370,9 @@ INDEX_HTML = r"""<!doctype html>
     .infoList { display:grid; gap:12px; margin-top:10px; }
     .infoItem { padding:12px; border:1px solid var(--soft-line); border-radius:8px; background:#fbfbfd; }
     .infoItem strong { display:block; margin-bottom:4px; font-size:13px; }
+    .formSection { padding:16px 0; border-top:1px solid var(--soft-line); }
+    .formSection:first-of-type { border-top:0; padding-top:0; }
+    .formSection h3 { margin:0 0 12px; font-size:15px; line-height:1.3; }
     .pathrow { display:grid; grid-template-columns:1fr 1fr; gap:8px; align-items:center; }
     .pathrow input { grid-column:1 / -1; min-width:0; }
     .pathrow button { width:100%; }
@@ -365,8 +388,8 @@ INDEX_HTML = r"""<!doctype html>
     <div class="headleft">
       <h1>科赛力量爆款收集专家</h1>
       <nav class="nav" aria-label="功能页面">
-        <a id="collectNav" href="/collect">爆款采集</a>
         <a id="productNav" href="/product">产品信息</a>
+        <a id="collectNav" href="/collect">爆款采集</a>
         <a id="analyzeNav" href="/analyze">视频拆解</a>
       </nav>
     </div>
@@ -434,42 +457,92 @@ INDEX_HTML = r"""<!doctype html>
           <h2>我的产品资料</h2>
           <span class="filemeta">本地保存</span>
         </div>
-        <div class="grid2">
-          <div>
-            <label>产品名称</label>
-            <input id="product_name" placeholder="例如：Lush Bloom 香氛洗衣珠" />
+        <div class="formSection">
+          <h3>基础识别</h3>
+          <div class="grid2">
+            <div>
+              <label>市场 / 地区</label>
+              <input id="product_market" placeholder="例如：马来西亚 TikTok 市场" />
+            </div>
+            <div>
+              <label>收集日期</label>
+              <input id="product_collection_date" placeholder="例如：2026-04-30" />
+            </div>
           </div>
-          <div>
-            <label>产品类目</label>
-            <input id="product_category" placeholder="例如：美妆个护 / 家居清洁" />
+          <div class="grid2">
+            <div>
+              <label>产品名</label>
+              <input id="product_product_name" placeholder="例如：泡泡染发洗发水" />
+            </div>
+            <div>
+              <label>英文名</label>
+              <input id="product_english_name" placeholder="例如：Bubble Hair Dye Shampoo" />
+            </div>
+          </div>
+          <label>类目</label>
+          <input id="product_category" placeholder="例如：美妆个护 > 美发护发 > 染发霜/染发剂" />
+          <div class="grid2">
+            <div>
+              <label>规格</label>
+              <input id="product_spec" placeholder="例如：500ml/瓶" />
+            </div>
+            <div>
+              <label>作用时间</label>
+              <input id="product_action_time" placeholder="例如：15-25 分钟" />
+            </div>
+          </div>
+          <label>色号</label>
+          <textarea id="product_colors" placeholder="例如：自然黑、棕黑色、咖啡色、栗棕色、黑茶色（共5色）"></textarea>
+        </div>
+
+        <div class="formSection">
+          <h3>定价策略</h3>
+          <div class="grid2">
+            <div>
+              <label>日常价</label>
+              <input id="product_regular_price" placeholder="例如：40 马来币" />
+            </div>
+            <div>
+              <label>活动价</label>
+              <input id="product_promo_price" placeholder="例如：20.9 马来币" />
+            </div>
           </div>
         </div>
-        <label>目标人群</label>
-        <textarea id="product_target_audience" class="tall" placeholder="适合买给谁？他们的年龄、身份、购买场景、在意点是什么？"></textarea>
-        <label>核心痛点</label>
-        <textarea id="product_pain_points" class="tall" placeholder="用户现在被什么问题困扰？竞品视频里反复击中的痛点也可以写在这里。"></textarea>
-        <label>核心卖点</label>
-        <textarea id="product_selling_points" class="tall" placeholder="你的产品解决了什么？效果、材质、容量、使用方式、关键利益点。"></textarea>
-        <label>差异化优势</label>
-        <textarea id="product_differentiators" class="tall" placeholder="和竞品相比有什么不同？更便宜、更快、更方便、更好看、更适合某类人群等。"></textarea>
-        <label>使用场景</label>
-        <textarea id="product_usage_scenarios" class="tall" placeholder="在什么生活场景出现？开箱、对比、使用前后、紧急救场、家庭/办公室/旅行等。"></textarea>
-        <div class="grid2">
-          <div>
-            <label>价格与优惠</label>
-            <textarea id="product_price_offer" placeholder="价格、折扣、组合装、包邮、赠品、限时优惠。"></textarea>
-          </div>
-          <div>
-            <label>信任背书</label>
-            <textarea id="product_proof_points" placeholder="销量、评价、认证、真实反馈、达人背书、成分/测试依据。"></textarea>
-          </div>
+
+        <div class="formSection">
+          <h3>TOP 3 核心卖点</h3>
+          <textarea id="product_top_selling_points" class="tall" placeholder="按 1/2/3 填写核心卖点，例如：极简操作、天然植物成分、发色自然持久。"></textarea>
         </div>
-        <label>内容语气</label>
-        <textarea id="product_tone" placeholder="想要的表达风格：原生感、夸张、委屈、警告、闺蜜推荐、专家口吻等。"></textarea>
-        <label>禁用表达 / 风险点</label>
-        <textarea id="product_forbidden_claims" placeholder="不能说的词、不能承诺的效果、合规风险、品牌禁区。"></textarea>
-        <label>补充备注</label>
-        <textarea id="product_notes" class="tall" placeholder="其他仿写脚本时必须知道的信息。"></textarea>
+
+        <div class="formSection">
+          <h3>目标人群 × 痛点矩阵</h3>
+          <textarea id="product_audience_pain_matrix" class="tall" placeholder="按人群整理痛点矩阵，例如：白发遮盖族、上班族、年轻爱美人士、居家 DIY 新手。"></textarea>
+        </div>
+
+        <div class="formSection">
+          <h3>核心痛点与转化话术</h3>
+          <textarea id="product_pain_conversion_talk_tracks" class="tall" placeholder="按人群写痛点和话术方向，例如：15分钟泡泡一按一洗、洗澡顺便染发。"></textarea>
+        </div>
+
+        <div class="formSection">
+          <h3>营销推广切入点（TikTok）</h3>
+          <textarea id="product_tiktok_marketing_angles" class="tall" placeholder="填写切入角度、目标人群和关键钩子，例如：15分钟洗掉白发、洗澡顺便染发。"></textarea>
+        </div>
+
+        <div class="formSection">
+          <h3>西班牙 / 东南亚市场关键词参考</h3>
+          <textarea id="product_market_keywords" class="tall" placeholder="例如：bubble hair dye、15 min covering grey、no mess hair dye。"></textarea>
+        </div>
+
+        <div class="formSection">
+          <h3>适配素材类型建议</h3>
+          <textarea id="product_material_type_suggestions" class="tall" placeholder="例如：洗护痛点对比、视觉诊断、15秒快手教程、读心式困惑、暴露缺点。"></textarea>
+        </div>
+
+        <div class="formSection">
+          <h3>补充备注</h3>
+          <textarea id="product_notes" class="tall" placeholder="其他无法归类但生成脚本时必须保留的信息。"></textarea>
+        </div>
         <div class="buttons">
           <button class="primary" onclick="saveProductProfile()">保存产品信息</button>
         </div>
@@ -547,23 +620,28 @@ INDEX_HTML = r"""<!doctype html>
     </div>
   </main>
   <script>
-    const currentPage = location.pathname === '/analyze' ? 'analyze' : (location.pathname === '/product' ? 'product' : 'collect');
+    const currentPage = location.pathname === '/analyze' ? 'analyze' : (location.pathname === '/collect' ? 'collect' : 'product');
     document.body.dataset.page = currentPage;
     collectNav.classList.toggle('active', currentPage === 'collect');
     productNav.classList.toggle('active', currentPage === 'product');
     analyzeNav.classList.toggle('active', currentPage === 'analyze');
     const productFields = [
-      'name',
+      'market',
+      'collection_date',
+      'product_name',
+      'english_name',
       'category',
-      'target_audience',
-      'pain_points',
-      'selling_points',
-      'differentiators',
-      'usage_scenarios',
-      'price_offer',
-      'proof_points',
-      'tone',
-      'forbidden_claims',
+      'spec',
+      'colors',
+      'action_time',
+      'regular_price',
+      'promo_price',
+      'top_selling_points',
+      'audience_pain_matrix',
+      'pain_conversion_talk_tracks',
+      'tiktok_marketing_angles',
+      'market_keywords',
+      'material_type_suggestions',
       'notes'
     ];
 

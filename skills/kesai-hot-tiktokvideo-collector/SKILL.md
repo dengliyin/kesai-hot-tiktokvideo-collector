@@ -46,7 +46,7 @@ The app stores parameters in `fastmoss_config.json`. This file contains local cr
 http://127.0.0.1:8765
 ```
 
-5. The app has separate pages under the same local entry: `/collect` for collection/download, `/product` for local product context storage, and `/analyze` for Gemini video teardown.
+5. The app has separate pages under the same local entry in workflow order: `/product` for local product context storage, `/collect` for collection/download, and `/analyze` for Gemini video teardown.
 6. For a direct command-line run, execute the full pipeline:
 
 ```bash
@@ -90,7 +90,7 @@ The product profile phase:
 
 - The Web UI has a separate "产品信息" page for saving the user's product context locally.
 - Product profile data is stored under `product_profile` in `fastmoss_config.json`.
-- Product profile fields include product name, category, target audience, pain points, selling points, differentiators, usage scenarios, price/offer, proof points, tone, forbidden claims, and notes.
+- Product profile fields follow the product Markdown structure: basic identification, pricing strategy, top 3 selling points, audience x pain matrix, pain/conversion talk tracks, TikTok marketing angles, market keywords, material type suggestions, and notes.
 - Treat product profile content as local business context. Do not commit real product details unless the user explicitly provides sanitized examples for documentation.
 
 Run a single-video minimal test with:
