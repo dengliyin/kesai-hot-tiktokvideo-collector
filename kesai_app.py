@@ -1181,7 +1181,8 @@ def main():
     server = ThreadingHTTPServer((HOST, PORT), Handler)
     url = f"http://{HOST}:{PORT}"
     print(f"科赛力量爆款收集专家已启动: {url}")
-    webbrowser.open(url)
+    if os.environ.get("KESAI_APP_NO_OPEN") != "1":
+        webbrowser.open(url)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

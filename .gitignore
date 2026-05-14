@@ -14,3 +14,4 @@ downloads/
 analysis/
 script_outputs/
 app.log
+app.pid
