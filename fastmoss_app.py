@@ -20,6 +20,22 @@ ANALYSIS_DIR = ROOT / "analysis"
 HOST = "127.0.0.1"
 PORT = int(os.environ.get("FASTMOSS_APP_PORT", "8765"))
 
+PRODUCT_PROFILE_FIELDS = [
+    "name",
+    "category",
+    "target_audience",
+    "pain_points",
+    "selling_points",
+    "differentiators",
+    "usage_scenarios",
+    "price_offer",
+    "proof_points",
+    "tone",
+    "forbidden_claims",
+    "notes",
+]
+DEFAULT_PRODUCT_PROFILE = {field: "" for field in PRODUCT_PROFILE_FIELDS}
+
 DEFAULT_CONFIG = {
     "phone": "",
     "password": "",
@@ -35,6 +51,7 @@ DEFAULT_CONFIG = {
     "video_analysis_prompt": "",
     "video_analysis_max_output_tokens": 32768,
     "analysis_input_path": "",
+    "product_profile": DEFAULT_PRODUCT_PROFILE.copy(),
 }
 
 
@@ -115,8 +132,15 @@ def load_config():
         with CONFIG_PATH.open(encoding="utf-8") as f:
             config = json.load(f)
         merged = DEFAULT_CONFIG | config
+        merged["product_profile"] = normalize_product_profile(merged.get("product_profile", {}))
         return merged
     return DEFAULT_CONFIG.copy()
+
+
+def normalize_product_profile(profile):
+    if not isinstance(profile, dict):
+        profile = {}
+    return {field: str(profile.get(field, "") or "") for field in PRODUCT_PROFILE_FIELDS}
 
 
 def save_config(config):
@@ -136,6 +160,7 @@ def save_config(config):
     config["video_analysis_prompt"] = str(config.get("video_analysis_prompt", ""))
     config["video_analysis_max_output_tokens"] = int(config.get("video_analysis_max_output_tokens", 32768))
     config["analysis_input_path"] = str(config.get("analysis_input_path", "")).strip()
+    config["product_profile"] = normalize_product_profile(config.get("product_profile", {}))
     config.pop("analysis_video_limit", None)
     CONFIG_PATH.write_text(json.dumps(config, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return config
@@ -156,6 +181,14 @@ def save_teardown_defaults(payload):
     config["video_analysis_max_output_tokens"] = int(config.get("video_analysis_max_output_tokens", 32768))
     config.pop("analysis_video_limit", None)
     return save_config(config)
+
+
+def save_product_profile(payload):
+    config = load_config()
+    profile = payload.get("product_profile", payload)
+    config["product_profile"] = normalize_product_profile(profile)
+    CONFIG_PATH.write_text(json.dumps(config, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return config["product_profile"]
 
 
 def file_listing():
@@ -257,7 +290,12 @@ INDEX_HTML = r"""<!doctype html>
     }
     * { box-sizing: border-box; }
     body { margin:0; font:14px/1.45 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",sans-serif; color:var(--text); background:var(--bg); letter-spacing:0; }
-    body[data-page="collect"] #analyzePage, body[data-page="analyze"] #collectPage { display:none; }
+    body[data-page="collect"] #productPage,
+    body[data-page="collect"] #analyzePage,
+    body[data-page="product"] #collectPage,
+    body[data-page="product"] #analyzePage,
+    body[data-page="analyze"] #collectPage,
+    body[data-page="analyze"] #productPage { display:none; }
     header { position:sticky; top:0; z-index:2; min-height:62px; display:flex; align-items:center; justify-content:space-between; gap:18px; padding:0 28px; background:rgba(255,255,255,.78); border-bottom:1px solid rgba(0,0,0,.08); backdrop-filter:saturate(180%) blur(18px); }
     .headleft { display:flex; align-items:center; gap:22px; min-width:0; }
     h1 { margin:0; font-size:18px; font-weight:700; letter-spacing:0; }
@@ -268,6 +306,7 @@ INDEX_HTML = r"""<!doctype html>
     .pageintro { display:flex; align-items:flex-end; justify-content:space-between; gap:18px; margin:0 0 16px; }
     .pageintro h2 { margin:0 0 4px; font-size:22px; }
     .workspace { display:grid; grid-template-columns:440px minmax(0,1fr); gap:20px; align-items:start; }
+    .workspace.product { grid-template-columns:minmax(0, 1fr) 360px; }
     section { background:var(--panel); border:1px solid rgba(0,0,0,.08); border-radius:8px; padding:20px; box-shadow:var(--shadow); }
     h2 { font-size:16px; line-height:1.25; margin:0 0 16px; font-weight:700; }
     label { display:block; margin:13px 0 6px; color:#424245; font-size:12px; font-weight:700; }
@@ -276,6 +315,7 @@ INDEX_HTML = r"""<!doctype html>
     input:focus, select:focus, textarea:focus { border-color:var(--accent); background:#fff; box-shadow:0 0 0 4px rgba(0,113,227,.12); }
     textarea { min-height:78px; resize:vertical; }
     textarea.prompt { min-height:260px; font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",sans-serif; }
+    textarea.tall { min-height:120px; }
     .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
     .buttons { display:flex; flex-wrap:wrap; gap:10px; margin-top:16px; }
     .sectionhead { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; }
@@ -307,6 +347,9 @@ INDEX_HTML = r"""<!doctype html>
     .filemeta { display:inline-flex; align-items:center; margin-top:5px; padding:2px 7px; border-radius:999px; background:#eef5ff; color:#315f93; font-size:12px; font-weight:600; }
     .empty { padding:14px 0; color:var(--muted); }
     .muted { color:var(--muted); font-size:13px; }
+    .infoList { display:grid; gap:12px; margin-top:10px; }
+    .infoItem { padding:12px; border:1px solid var(--soft-line); border-radius:8px; background:#fbfbfd; }
+    .infoItem strong { display:block; margin-bottom:4px; font-size:13px; }
     .pathrow { display:grid; grid-template-columns:1fr 1fr; gap:8px; align-items:center; }
     .pathrow input { grid-column:1 / -1; min-width:0; }
     .pathrow button { width:100%; }
@@ -314,7 +357,7 @@ INDEX_HTML = r"""<!doctype html>
     .toast.show { opacity:1; transform:translateY(0); }
     .toast.error { background:rgba(215,0,21,.94); }
     @media (max-width:1100px) { .files { grid-template-columns:1fr; } }
-    @media (max-width:900px) { header { align-items:flex-start; padding:14px 18px; flex-direction:column; } .workspace { grid-template-columns:1fr; } .pageintro { align-items:flex-start; flex-direction:column; } .page { padding:0 14px; } }
+    @media (max-width:900px) { header { align-items:flex-start; padding:14px 18px; flex-direction:column; } .workspace, .workspace.product { grid-template-columns:1fr; } .pageintro { align-items:flex-start; flex-direction:column; } .page { padding:0 14px; } }
   </style>
 </head>
 <body data-page="collect">
@@ -323,6 +366,7 @@ INDEX_HTML = r"""<!doctype html>
       <h1>科赛力量爆款收集专家</h1>
       <nav class="nav" aria-label="功能页面">
         <a id="collectNav" href="/collect">爆款采集</a>
+        <a id="productNav" href="/product">产品信息</a>
         <a id="analyzeNav" href="/analyze">视频拆解</a>
       </nav>
     </div>
@@ -375,6 +419,79 @@ INDEX_HTML = r"""<!doctype html>
         </div>
       </div>
     </section>
+    </div>
+  </main>
+  <main id="productPage" class="page">
+    <div class="pageintro">
+      <div>
+        <h2>产品信息</h2>
+        <p class="muted">把你的产品资料沉淀成本地上下文，后面用竞品爆款脚本仿写时直接调用。</p>
+      </div>
+    </div>
+    <div class="workspace product">
+      <section>
+        <div class="sectionhead">
+          <h2>我的产品资料</h2>
+          <span class="filemeta">本地保存</span>
+        </div>
+        <div class="grid2">
+          <div>
+            <label>产品名称</label>
+            <input id="product_name" placeholder="例如：Lush Bloom 香氛洗衣珠" />
+          </div>
+          <div>
+            <label>产品类目</label>
+            <input id="product_category" placeholder="例如：美妆个护 / 家居清洁" />
+          </div>
+        </div>
+        <label>目标人群</label>
+        <textarea id="product_target_audience" class="tall" placeholder="适合买给谁？他们的年龄、身份、购买场景、在意点是什么？"></textarea>
+        <label>核心痛点</label>
+        <textarea id="product_pain_points" class="tall" placeholder="用户现在被什么问题困扰？竞品视频里反复击中的痛点也可以写在这里。"></textarea>
+        <label>核心卖点</label>
+        <textarea id="product_selling_points" class="tall" placeholder="你的产品解决了什么？效果、材质、容量、使用方式、关键利益点。"></textarea>
+        <label>差异化优势</label>
+        <textarea id="product_differentiators" class="tall" placeholder="和竞品相比有什么不同？更便宜、更快、更方便、更好看、更适合某类人群等。"></textarea>
+        <label>使用场景</label>
+        <textarea id="product_usage_scenarios" class="tall" placeholder="在什么生活场景出现？开箱、对比、使用前后、紧急救场、家庭/办公室/旅行等。"></textarea>
+        <div class="grid2">
+          <div>
+            <label>价格与优惠</label>
+            <textarea id="product_price_offer" placeholder="价格、折扣、组合装、包邮、赠品、限时优惠。"></textarea>
+          </div>
+          <div>
+            <label>信任背书</label>
+            <textarea id="product_proof_points" placeholder="销量、评价、认证、真实反馈、达人背书、成分/测试依据。"></textarea>
+          </div>
+        </div>
+        <label>内容语气</label>
+        <textarea id="product_tone" placeholder="想要的表达风格：原生感、夸张、委屈、警告、闺蜜推荐、专家口吻等。"></textarea>
+        <label>禁用表达 / 风险点</label>
+        <textarea id="product_forbidden_claims" placeholder="不能说的词、不能承诺的效果、合规风险、品牌禁区。"></textarea>
+        <label>补充备注</label>
+        <textarea id="product_notes" class="tall" placeholder="其他仿写脚本时必须知道的信息。"></textarea>
+        <div class="buttons">
+          <button class="primary" onclick="saveProductProfile()">保存产品信息</button>
+        </div>
+        <p class="muted">这些信息只会保存到本地配置文件，后续可以和竞品视频拆解结果一起作为仿写脚本的输入。</p>
+      </section>
+      <section>
+        <h2>后续用途</h2>
+        <div class="infoList">
+          <div class="infoItem">
+            <strong>1. 对齐产品上下文</strong>
+            <span class="muted">拆解竞品脚本后，用你的产品卖点替换竞品产品，不会只复刻形式。</span>
+          </div>
+          <div class="infoItem">
+            <strong>2. 控制转化重点</strong>
+            <span class="muted">价格、优惠、信任背书和禁用表达会约束脚本生成方向。</span>
+          </div>
+          <div class="infoItem">
+            <strong>3. 支持后续一键仿写</strong>
+            <span class="muted">下一步可以把「视频拆解结果 + 产品信息」合并，让模型输出你的带货脚本。</span>
+          </div>
+        </div>
+      </section>
     </div>
   </main>
   <main id="analyzePage" class="page">
@@ -430,10 +547,25 @@ INDEX_HTML = r"""<!doctype html>
     </div>
   </main>
   <script>
-    const currentPage = location.pathname === '/analyze' ? 'analyze' : 'collect';
+    const currentPage = location.pathname === '/analyze' ? 'analyze' : (location.pathname === '/product' ? 'product' : 'collect');
     document.body.dataset.page = currentPage;
     collectNav.classList.toggle('active', currentPage === 'collect');
+    productNav.classList.toggle('active', currentPage === 'product');
     analyzeNav.classList.toggle('active', currentPage === 'analyze');
+    const productFields = [
+      'name',
+      'category',
+      'target_audience',
+      'pain_points',
+      'selling_points',
+      'differentiators',
+      'usage_scenarios',
+      'price_offer',
+      'proof_points',
+      'tone',
+      'forbidden_claims',
+      'notes'
+    ];
 
     async function api(path, options={}) {
       const res = await fetch(path, {headers:{'Content-Type':'application/json'}, ...options});
@@ -456,6 +588,11 @@ INDEX_HTML = r"""<!doctype html>
       video_analysis_model.value = cfg.video_analysis_model || 'google/gemini-3-flash';
       analysis_input_path.value = cfg.analysis_input_path || '';
       video_analysis_prompt.value = cfg.video_analysis_prompt || '';
+      const profile = cfg.product_profile || {};
+      productFields.forEach(field => {
+        const el = document.getElementById('product_' + field);
+        if (el) el.value = profile[field] || '';
+      });
     }
     async function saveConfig(silent=false) {
       const payload = {
@@ -483,6 +620,19 @@ INDEX_HTML = r"""<!doctype html>
       await api('/api/teardown-defaults', {method:'POST', body:JSON.stringify(payload)});
       await refresh();
       if (!silent) alert('视频拆解默认设置已保存到本地');
+    }
+    async function saveProductProfile(silent=false) {
+      try {
+        const product_profile = {};
+        productFields.forEach(field => {
+          const el = document.getElementById('product_' + field);
+          product_profile[field] = el ? el.value.trim() : '';
+        });
+        await api('/api/product-profile', {method:'POST', body:JSON.stringify({product_profile})});
+        if (!silent) showToast('产品信息已保存到本地');
+      } catch (error) {
+        showToast(error.message || '产品信息保存失败', true);
+      }
     }
     async function startTask(task) {
       try {
@@ -584,7 +734,7 @@ class Handler(BaseHTTPRequestHandler):
         path = parsed.path
         query = parse_qs(parsed.query)
         try:
-            if path in ("/", "/collect", "/analyze"):
+            if path in ("/", "/collect", "/product", "/analyze"):
                 body = INDEX_HTML.encode("utf-8")
                 self.send_response(200)
                 self.send_header("Content-Type", "text/html; charset=utf-8")
@@ -593,6 +743,8 @@ class Handler(BaseHTTPRequestHandler):
                 self.wfile.write(body)
             elif path == "/api/config":
                 self._json(200, load_config())
+            elif path == "/api/product-profile":
+                self._json(200, load_config().get("product_profile", DEFAULT_PRODUCT_PROFILE))
             elif path == "/api/status":
                 payload = JOBS.status()
                 payload["files"] = file_listing()
@@ -614,6 +766,8 @@ class Handler(BaseHTTPRequestHandler):
         try:
             if path == "/api/config":
                 self._json(200, save_config(self._read_json()))
+            elif path == "/api/product-profile":
+                self._json(200, save_product_profile(self._read_json()))
             elif path == "/api/teardown-defaults":
                 self._json(200, save_teardown_defaults(self._read_json()))
             elif path == "/api/run/full":

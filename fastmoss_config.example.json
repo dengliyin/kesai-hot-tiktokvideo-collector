@@ -15,5 +15,19 @@
   "modelmesh_base_url": "https://router.shengsuanyun.com/api",
   "video_analysis_model": "google/gemini-3-flash",
   "video_analysis_prompt": "",
-  "analysis_input_path": ""
+  "analysis_input_path": "",
+  "product_profile": {
+    "name": "",
+    "category": "",
+    "target_audience": "",
+    "pain_points": "",
+    "selling_points": "",
+    "differentiators": "",
+    "usage_scenarios": "",
+    "price_offer": "",
+    "proof_points": "",
+    "tone": "",
+    "forbidden_claims": "",
+    "notes": ""
+  }
 }
