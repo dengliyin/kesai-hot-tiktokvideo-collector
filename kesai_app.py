@@ -19,6 +19,11 @@ STORAGE_DIR = ROOT / "storage"
 DOWNLOAD_DIR = ROOT / "downloads"
 ANALYSIS_DIR = ROOT / "analysis"
 SCRIPT_OUTPUT_DIR = ROOT / "script_outputs"
+ADAPTED_SCRIPT_DIR = ROOT / "adapted_scripts"
+ASSEMBLED_VIDEO_DIR = ROOT / "assembled_videos"
+PUBLISH_RECORD_DIR = ROOT / "publish_records"
+METRICS_DIR = ROOT / "metrics"
+SCRIPT_OPTIMIZATION_DIR = ROOT / "script_optimizations"
 KNOWLEDGE_BASE_DIR = ROOT / "knowledge_base"
 DEFAULT_TEARDOWN_KNOWLEDGE_BASE_PATH = KNOWLEDGE_BASE_DIR / "video_teardown_knowledge_base.md"
 DEFAULT_SCRIPT_GENERATION_PROMPT_PATH = KNOWLEDGE_BASE_DIR / "script_generation_prompt.md"
@@ -80,6 +85,23 @@ DEFAULT_CONFIG = {
     "script_target_language": "",
     "script_total_duration": "40s",
     "script_hook_duration": "8s",
+    "script_adaptation_input_path": "",
+    "script_adaptation_target_model": "veo",
+    "script_adaptation_segment_seconds": 8,
+    "script_adaptation_notes": "",
+    "clip_assembly_input_dir": "",
+    "clip_assembly_output_name": "",
+    "clip_assembly_notes": "",
+    "video_publish_input_path": "",
+    "video_publish_account": "",
+    "video_publish_caption": "",
+    "video_publish_tags": "",
+    "video_publish_mode": "manual_record",
+    "data_recovery_input_path": "",
+    "data_recovery_manual_metrics": "",
+    "script_optimization_input_path": "",
+    "script_optimization_metrics_path": "",
+    "script_optimization_notes": "",
     "product_profile": DEFAULT_PRODUCT_PROFILE.copy(),
 }
 
@@ -316,6 +338,36 @@ def save_script_defaults(payload):
     return save_config(config)
 
 
+CONTENT_WORKFLOW_FIELDS = [
+    "script_adaptation_input_path",
+    "script_adaptation_target_model",
+    "script_adaptation_segment_seconds",
+    "script_adaptation_notes",
+    "clip_assembly_input_dir",
+    "clip_assembly_output_name",
+    "clip_assembly_notes",
+    "video_publish_input_path",
+    "video_publish_account",
+    "video_publish_caption",
+    "video_publish_tags",
+    "video_publish_mode",
+    "data_recovery_input_path",
+    "data_recovery_manual_metrics",
+    "script_optimization_input_path",
+    "script_optimization_metrics_path",
+    "script_optimization_notes",
+]
+
+
+def save_content_workflow_defaults(payload):
+    config = load_config()
+    for field in CONTENT_WORKFLOW_FIELDS:
+        if field in payload:
+            config[field] = payload.get(field, DEFAULT_CONFIG.get(field, ""))
+    config["script_adaptation_segment_seconds"] = int(config.get("script_adaptation_segment_seconds") or 8)
+    return save_config(config)
+
+
 def save_product_profile(payload):
     config = load_config()
     profile = payload.get("product_profile", payload)
@@ -329,6 +381,11 @@ def file_listing():
     DOWNLOAD_DIR.mkdir(exist_ok=True)
     ANALYSIS_DIR.mkdir(exist_ok=True)
     SCRIPT_OUTPUT_DIR.mkdir(exist_ok=True)
+    ADAPTED_SCRIPT_DIR.mkdir(exist_ok=True)
+    ASSEMBLED_VIDEO_DIR.mkdir(exist_ok=True)
+    PUBLISH_RECORD_DIR.mkdir(exist_ok=True)
+    METRICS_DIR.mkdir(exist_ok=True)
+    SCRIPT_OPTIMIZATION_DIR.mkdir(exist_ok=True)
     csv_files = [
         {
             "name": path.name,
@@ -361,7 +418,38 @@ def file_listing():
         }
         for path in sorted(SCRIPT_OUTPUT_DIR.rglob("*.md"), key=lambda p: p.stat().st_mtime, reverse=True)[:30]
     ]
-    return {"csv_files": csv_files, "download_dirs": download_dirs, "analysis_files": analysis_files, "script_files": script_files}
+    adapted_script_files = [
+        {"name": path.name, "path": str(path), "size": path.stat().st_size, "mtime": path.stat().st_mtime}
+        for path in sorted(ADAPTED_SCRIPT_DIR.rglob("*.md"), key=lambda p: p.stat().st_mtime, reverse=True)[:30]
+    ]
+    assembled_video_files = [
+        {"name": path.name, "path": str(path), "size": path.stat().st_size, "mtime": path.stat().st_mtime}
+        for path in sorted(ASSEMBLED_VIDEO_DIR.glob("*"), key=lambda p: p.stat().st_mtime, reverse=True)[:30]
+        if path.is_file() and path.suffix.lower() in {".mp4", ".mov", ".md", ".json"}
+    ]
+    publish_record_files = [
+        {"name": path.name, "path": str(path), "size": path.stat().st_size, "mtime": path.stat().st_mtime}
+        for path in sorted(PUBLISH_RECORD_DIR.rglob("*.md"), key=lambda p: p.stat().st_mtime, reverse=True)[:30]
+    ]
+    metrics_files = [
+        {"name": path.name, "path": str(path), "size": path.stat().st_size, "mtime": path.stat().st_mtime}
+        for path in sorted(METRICS_DIR.rglob("*.md"), key=lambda p: p.stat().st_mtime, reverse=True)[:30]
+    ]
+    optimization_files = [
+        {"name": path.name, "path": str(path), "size": path.stat().st_size, "mtime": path.stat().st_mtime}
+        for path in sorted(SCRIPT_OPTIMIZATION_DIR.rglob("*.md"), key=lambda p: p.stat().st_mtime, reverse=True)[:30]
+    ]
+    return {
+        "csv_files": csv_files,
+        "download_dirs": download_dirs,
+        "analysis_files": analysis_files,
+        "script_files": script_files,
+        "adapted_script_files": adapted_script_files,
+        "assembled_video_files": assembled_video_files,
+        "publish_record_files": publish_record_files,
+        "metrics_files": metrics_files,
+        "optimization_files": optimization_files,
+    }
 
 
 def choose_analysis_path(kind="folder"):
@@ -381,6 +469,22 @@ def choose_analysis_path(kind="folder"):
 
 def choose_script_reference_path():
     script = 'POSIX path of (choose file with prompt "选择竞品视频拆解结果 Markdown")'
+    result = subprocess.run(
+        ["osascript", "-e", script],
+        check=True,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    return result.stdout.strip()
+
+
+def choose_local_path(kind="file", prompt="选择文件"):
+    safe_prompt = str(prompt or "选择文件").replace('"', '\\"')
+    if kind == "folder":
+        script = f'POSIX path of (choose folder with prompt "{safe_prompt}")'
+    else:
+        script = f'POSIX path of (choose file with prompt "{safe_prompt}")'
     result = subprocess.run(
         ["osascript", "-e", script],
         check=True,
@@ -465,11 +569,17 @@ INDEX_HTML = r"""<!doctype html>
     body[data-page="product"] #productPage,
     body[data-page="collect"] #collectPage,
     body[data-page="analyze"] #analyzePage,
-    body[data-page="script"] #scriptPage { display:block; }
+    body[data-page="script"] #scriptPage,
+    body[data-page="adapt"] #adaptPage,
+    body[data-page="assemble"] #assemblePage,
+    body[data-page="publish"] #publishPage,
+    body[data-page="metrics"] #metricsPage,
+    body[data-page="optimize"] #optimizePage { display:block; }
     header { position:sticky; top:0; z-index:2; min-height:62px; display:flex; align-items:center; justify-content:space-between; gap:18px; padding:0 28px; background:rgba(255,255,255,.78); border-bottom:1px solid rgba(0,0,0,.08); backdrop-filter:saturate(180%) blur(18px); }
     .headleft { display:flex; align-items:center; gap:22px; min-width:0; }
     h1 { margin:0; font-size:18px; font-weight:700; letter-spacing:0; }
-    .nav { display:flex; gap:6px; padding:4px; border-radius:999px; background:#eef0f4; }
+    .nav { display:flex; gap:6px; max-width:74vw; padding:4px; border-radius:999px; background:#eef0f4; overflow-x:auto; scrollbar-width:none; }
+    .nav::-webkit-scrollbar { display:none; }
     .nav a { display:inline-flex; align-items:center; min-height:32px; padding:0 13px; border-radius:999px; color:#424245; font-weight:700; text-decoration:none; white-space:nowrap; }
     .nav a.active { background:#fff; color:var(--text); box-shadow:0 1px 3px rgba(0,0,0,.08); }
     .page { max-width:1360px; margin:24px auto 40px; padding:0 22px; }
@@ -544,6 +654,11 @@ INDEX_HTML = r"""<!doctype html>
         <a id="collectNav" href="/collect">爆款采集</a>
         <a id="analyzeNav" href="/analyze">视频拆解</a>
         <a id="scriptNav" href="/script">脚本产出</a>
+        <a id="adaptNav" href="/adapt">脚本适配</a>
+        <a id="assembleNav" href="/assemble">片段组合</a>
+        <a id="publishNav" href="/publish">视频发布</a>
+        <a id="metricsNav" href="/metrics">数据回收</a>
+        <a id="optimizeNav" href="/optimize">脚本优化</a>
       </nav>
     </div>
     <div class="status"><span id="dot" class="dot"></span><span id="statusText">未运行</span></div>
@@ -848,13 +963,272 @@ INDEX_HTML = r"""<!doctype html>
     </section>
     </div>
   </main>
+  <main id="adaptPage" class="page">
+    <div class="pageintro">
+      <div>
+        <h2>脚本适配</h2>
+        <p class="muted">把成品脚本改写成适合视频生成模型的分段提示词，并同步生成每段首帧图描述。</p>
+      </div>
+    </div>
+    <div class="workspace">
+    <section>
+      <div class="sectionhead">
+        <h2>适配参数</h2>
+        <span class="filemeta">框架版</span>
+      </div>
+      <label>成品脚本路径</label>
+      <div class="pathrow">
+        <input id="script_adaptation_input_path" placeholder="选择 script_outputs 中的成品脚本 .md" />
+        <button onclick="chooseGenericPath('script_adaptation_input_path','file','选择要适配的成品脚本')">选择脚本</button>
+        <button onclick="openLocalPath(script_adaptation_input_path.value)">打开文件</button>
+      </div>
+      <div class="grid2">
+        <div>
+          <label>视频生成模型</label>
+          <select id="script_adaptation_target_model">
+            <option value="veo">Veo</option>
+            <option value="kling">可灵</option>
+            <option value="runway">Runway</option>
+            <option value="pika">Pika</option>
+            <option value="custom">自定义</option>
+          </select>
+        </div>
+        <div>
+          <label>单片段时长上限（秒）</label>
+          <input id="script_adaptation_segment_seconds" type="number" min="1" placeholder="8" />
+        </div>
+      </div>
+      <label>适配备注</label>
+      <textarea id="script_adaptation_notes" class="tall" placeholder="例如：每段必须 8 秒内；首帧图要突出 [product]；保持 TikTok 原生感。"></textarea>
+      <div class="buttons">
+        <button class="primary" onclick="saveContentWorkflowDefaults()">保存设置</button>
+        <button class="blue" onclick="startTask('adapt')">适配脚本</button>
+        <button class="danger" onclick="stopTask()">停止任务</button>
+      </div>
+      <p class="muted">当前先生成片段适配框架；后续可接入模型，把每段自动优化成 Veo/可灵等模型的最终提示词。</p>
+    </section>
+    <section>
+      <h2>运行日志</h2>
+      <pre id="adaptLogs"></pre>
+      <div class="files">
+        <div class="filebox">
+          <h2>脚本适配结果</h2>
+          <div id="adaptedScriptFiles" class="muted">加载中...</div>
+        </div>
+        <div class="filebox">
+          <h2>可选成品脚本</h2>
+          <div id="adaptSourceScriptFiles" class="muted">加载中...</div>
+        </div>
+      </div>
+    </section>
+    </div>
+  </main>
+  <main id="assemblePage" class="page">
+    <div class="pageintro">
+      <div>
+        <h2>片段组合</h2>
+        <p class="muted">把生成好的多个视频片段按顺序组合成一条完整视频。</p>
+      </div>
+    </div>
+    <div class="workspace">
+    <section>
+      <div class="sectionhead">
+        <h2>组合参数</h2>
+        <span class="filemeta">框架版</span>
+      </div>
+      <label>片段目录</label>
+      <div class="pathrow">
+        <input id="clip_assembly_input_dir" placeholder="选择存放片段 mp4 的文件夹" />
+        <button onclick="chooseGenericPath('clip_assembly_input_dir','folder','选择视频片段目录')">选择目录</button>
+        <button onclick="openLocalPath(clip_assembly_input_dir.value)">打开目录</button>
+      </div>
+      <label>输出视频名称</label>
+      <input id="clip_assembly_output_name" placeholder="例如：script_v1_test_video" />
+      <label>组合备注</label>
+      <textarea id="clip_assembly_notes" class="tall" placeholder="例如：按文件名顺序拼接；后续加入片头、字幕、BGM、转场。"></textarea>
+      <div class="buttons">
+        <button class="primary" onclick="saveContentWorkflowDefaults()">保存设置</button>
+        <button class="blue" onclick="startTask('assemble')">组合片段</button>
+        <button class="danger" onclick="stopTask()">停止任务</button>
+      </div>
+      <p class="muted">如果本机检测到 ffmpeg 且目录内有视频片段，会尝试无转码拼接；否则先生成组合清单和计划。</p>
+    </section>
+    <section>
+      <h2>运行日志</h2>
+      <pre id="assembleLogs"></pre>
+      <div class="files">
+        <div class="filebox">
+          <h2>组合输出</h2>
+          <div id="assembledVideoFiles" class="muted">加载中...</div>
+        </div>
+      </div>
+    </section>
+    </div>
+  </main>
+  <main id="publishPage" class="page">
+    <div class="pageintro">
+      <div>
+        <h2>视频发布</h2>
+        <p class="muted">管理待发布视频、账号、文案和标签；自动发布接口后续按账号授权方式接入。</p>
+      </div>
+    </div>
+    <div class="workspace">
+    <section>
+      <div class="sectionhead">
+        <h2>发布参数</h2>
+        <span class="filemeta">计划/记录</span>
+      </div>
+      <label>待发布视频</label>
+      <div class="pathrow">
+        <input id="video_publish_input_path" placeholder="选择组合后的视频 .mp4" />
+        <button onclick="chooseGenericPath('video_publish_input_path','file','选择待发布视频')">选择视频</button>
+        <button onclick="openLocalPath(video_publish_input_path.value)">打开文件</button>
+      </div>
+      <div class="grid2">
+        <div>
+          <label>TikTok 账号</label>
+          <input id="video_publish_account" placeholder="账号昵称或内部备注" />
+        </div>
+        <div>
+          <label>发布模式</label>
+          <select id="video_publish_mode">
+            <option value="manual_record">手动发布记录</option>
+            <option value="api_pending">自动发布待接入</option>
+          </select>
+        </div>
+      </div>
+      <label>发布文案</label>
+      <textarea id="video_publish_caption" class="tall" placeholder="视频 caption / 标题 / 购物车引导。"></textarea>
+      <label>标签</label>
+      <input id="video_publish_tags" placeholder="#hairdye #beauty #tiktokshop" />
+      <div class="buttons">
+        <button class="primary" onclick="saveContentWorkflowDefaults()">保存设置</button>
+        <button class="blue" onclick="startTask('publish')">生成发布计划</button>
+        <button class="danger" onclick="stopTask()">停止任务</button>
+      </div>
+      <p class="muted">当前不会自动登录或发布到 TikTok，只会生成发布计划。等你确认账号管理方式后再接自动发布。</p>
+    </section>
+    <section>
+      <h2>运行日志</h2>
+      <pre id="publishLogs"></pre>
+      <div class="files">
+        <div class="filebox">
+          <h2>发布记录</h2>
+          <div id="publishRecordFiles" class="muted">加载中...</div>
+        </div>
+      </div>
+    </section>
+    </div>
+  </main>
+  <main id="metricsPage" class="page">
+    <div class="pageintro">
+      <div>
+        <h2>数据回收</h2>
+        <p class="muted">把每条发布视频的播放、互动、点击、转化等数据回收成统一记录。</p>
+      </div>
+    </div>
+    <div class="workspace">
+    <section>
+      <div class="sectionhead">
+        <h2>回收参数</h2>
+        <span class="filemeta">框架版</span>
+      </div>
+      <label>数据文件</label>
+      <div class="pathrow">
+        <input id="data_recovery_input_path" placeholder="选择平台导出的 CSV，或留空手动填写" />
+        <button onclick="chooseGenericPath('data_recovery_input_path','file','选择数据回收 CSV')">选择文件</button>
+        <button onclick="openLocalPath(data_recovery_input_path.value)">打开文件</button>
+      </div>
+      <label>手动数据</label>
+      <textarea id="data_recovery_manual_metrics" class="tall" placeholder="例如：视频ID、脚本版本、播放、完播、点赞、评论、点击、成交、GMV。"></textarea>
+      <div class="buttons">
+        <button class="primary" onclick="saveContentWorkflowDefaults()">保存设置</button>
+        <button class="blue" onclick="startTask('metrics')">回收数据</button>
+        <button class="danger" onclick="stopTask()">停止任务</button>
+      </div>
+      <p class="muted">当前支持先读取 CSV 数值字段并生成汇总；后续可接 TikTok/TikTok Shop/API 或手动导入模板。</p>
+    </section>
+    <section>
+      <h2>运行日志</h2>
+      <pre id="metricsLogs"></pre>
+      <div class="files">
+        <div class="filebox">
+          <h2>数据回收结果</h2>
+          <div id="metricsFiles" class="muted">加载中...</div>
+        </div>
+      </div>
+    </section>
+    </div>
+  </main>
+  <main id="optimizePage" class="page">
+    <div class="pageintro">
+      <div>
+        <h2>脚本优化</h2>
+        <p class="muted">根据同一脚本产出的所有视频数据做加权评估，再反向优化脚本。</p>
+      </div>
+    </div>
+    <div class="workspace">
+    <section>
+      <div class="sectionhead">
+        <h2>优化参数</h2>
+        <span class="filemeta">框架版</span>
+      </div>
+      <label>原脚本路径</label>
+      <div class="pathrow">
+        <input id="script_optimization_input_path" placeholder="选择要优化的脚本 .md" />
+        <button onclick="chooseGenericPath('script_optimization_input_path','file','选择要优化的脚本')">选择脚本</button>
+        <button onclick="openLocalPath(script_optimization_input_path.value)">打开文件</button>
+      </div>
+      <label>数据回收结果</label>
+      <div class="pathrow">
+        <input id="script_optimization_metrics_path" placeholder="选择 metrics 中的数据回收结果" />
+        <button onclick="chooseGenericPath('script_optimization_metrics_path','file','选择数据回收结果')">选择数据</button>
+        <button onclick="openLocalPath(script_optimization_metrics_path.value)">打开文件</button>
+      </div>
+      <label>优化备注</label>
+      <textarea id="script_optimization_notes" class="tall" placeholder="例如：更看重成交/GMV；完播低优先重写前3秒；评论低优化争议点。"></textarea>
+      <div class="buttons">
+        <button class="primary" onclick="saveContentWorkflowDefaults()">保存设置</button>
+        <button class="blue" onclick="startTask('optimize')">优化脚本</button>
+        <button class="danger" onclick="stopTask()">停止任务</button>
+      </div>
+      <p class="muted">当前先产出加权评估和优化建议框架；后续接入真实发布数据后，再自动生成新脚本版本。</p>
+    </section>
+    <section>
+      <h2>运行日志</h2>
+      <pre id="optimizeLogs"></pre>
+      <div class="files">
+        <div class="filebox">
+          <h2>脚本优化结果</h2>
+          <div id="optimizationFiles" class="muted">加载中...</div>
+        </div>
+      </div>
+    </section>
+    </div>
+  </main>
   <script>
-    const currentPage = location.pathname === '/script' ? 'script' : (location.pathname === '/analyze' ? 'analyze' : (location.pathname === '/collect' ? 'collect' : 'product'));
+    const pageMap = {
+      '/product': 'product',
+      '/collect': 'collect',
+      '/analyze': 'analyze',
+      '/script': 'script',
+      '/adapt': 'adapt',
+      '/assemble': 'assemble',
+      '/publish': 'publish',
+      '/metrics': 'metrics',
+      '/optimize': 'optimize'
+    };
+    const currentPage = pageMap[location.pathname] || 'product';
     document.body.dataset.page = currentPage;
     collectNav.classList.toggle('active', currentPage === 'collect');
     productNav.classList.toggle('active', currentPage === 'product');
     analyzeNav.classList.toggle('active', currentPage === 'analyze');
     scriptNav.classList.toggle('active', currentPage === 'script');
+    adaptNav.classList.toggle('active', currentPage === 'adapt');
+    assembleNav.classList.toggle('active', currentPage === 'assemble');
+    publishNav.classList.toggle('active', currentPage === 'publish');
+    metricsNav.classList.toggle('active', currentPage === 'metrics');
+    optimizeNav.classList.toggle('active', currentPage === 'optimize');
     const productFields = [
       'market',
       'collection_date',
@@ -908,6 +1282,23 @@ INDEX_HTML = r"""<!doctype html>
       script_target_language.value = cfg.script_target_language || '';
       script_total_duration.value = cfg.script_total_duration || '40s';
       script_hook_duration.value = cfg.script_hook_duration || '8s';
+      script_adaptation_input_path.value = cfg.script_adaptation_input_path || '';
+      script_adaptation_target_model.value = cfg.script_adaptation_target_model || 'veo';
+      script_adaptation_segment_seconds.value = cfg.script_adaptation_segment_seconds || 8;
+      script_adaptation_notes.value = cfg.script_adaptation_notes || '';
+      clip_assembly_input_dir.value = cfg.clip_assembly_input_dir || '';
+      clip_assembly_output_name.value = cfg.clip_assembly_output_name || '';
+      clip_assembly_notes.value = cfg.clip_assembly_notes || '';
+      video_publish_input_path.value = cfg.video_publish_input_path || '';
+      video_publish_account.value = cfg.video_publish_account || '';
+      video_publish_caption.value = cfg.video_publish_caption || '';
+      video_publish_tags.value = cfg.video_publish_tags || '';
+      video_publish_mode.value = cfg.video_publish_mode || 'manual_record';
+      data_recovery_input_path.value = cfg.data_recovery_input_path || '';
+      data_recovery_manual_metrics.value = cfg.data_recovery_manual_metrics || '';
+      script_optimization_input_path.value = cfg.script_optimization_input_path || '';
+      script_optimization_metrics_path.value = cfg.script_optimization_metrics_path || '';
+      script_optimization_notes.value = cfg.script_optimization_notes || '';
       const profile = cfg.product_profile || {};
       productFields.forEach(field => {
         const el = document.getElementById('product_' + field);
@@ -960,6 +1351,30 @@ INDEX_HTML = r"""<!doctype html>
       await refresh();
       if (!silent) alert('脚本产出设置已保存到本地');
     }
+    async function saveContentWorkflowDefaults(silent=false) {
+      const payload = {
+        script_adaptation_input_path: script_adaptation_input_path.value.trim(),
+        script_adaptation_target_model: script_adaptation_target_model.value,
+        script_adaptation_segment_seconds: Number(script_adaptation_segment_seconds.value || 8),
+        script_adaptation_notes: script_adaptation_notes.value,
+        clip_assembly_input_dir: clip_assembly_input_dir.value.trim(),
+        clip_assembly_output_name: clip_assembly_output_name.value.trim(),
+        clip_assembly_notes: clip_assembly_notes.value,
+        video_publish_input_path: video_publish_input_path.value.trim(),
+        video_publish_account: video_publish_account.value.trim(),
+        video_publish_caption: video_publish_caption.value,
+        video_publish_tags: video_publish_tags.value.trim(),
+        video_publish_mode: video_publish_mode.value,
+        data_recovery_input_path: data_recovery_input_path.value.trim(),
+        data_recovery_manual_metrics: data_recovery_manual_metrics.value,
+        script_optimization_input_path: script_optimization_input_path.value.trim(),
+        script_optimization_metrics_path: script_optimization_metrics_path.value.trim(),
+        script_optimization_notes: script_optimization_notes.value
+      };
+      await api('/api/content-workflow-defaults', {method:'POST', body:JSON.stringify(payload)});
+      await refresh();
+      if (!silent) alert('内容分发工作流设置已保存到本地');
+    }
     async function saveProductProfile(silent=false) {
       try {
         const product_profile = {};
@@ -987,6 +1402,8 @@ INDEX_HTML = r"""<!doctype html>
             return;
           }
           await saveScriptDefaults(true);
+        } else if (['adapt', 'assemble', 'publish', 'metrics', 'optimize'].includes(task)) {
+          await saveContentWorkflowDefaults(true);
         } else {
           await saveConfig(true);
         }
@@ -1016,6 +1433,16 @@ INDEX_HTML = r"""<!doctype html>
         await saveScriptDefaults(true);
       } catch (error) {
         showToast(error.message || '选择拆解结果失败', true);
+      }
+    }
+    async function chooseGenericPath(targetId, kind, prompt) {
+      try {
+        const res = await api('/api/choose-path', {method:'POST', body:JSON.stringify({kind, prompt})});
+        const el = document.getElementById(targetId);
+        if (el) el.value = res.path || '';
+        await saveContentWorkflowDefaults(true);
+      } catch (error) {
+        showToast(error.message || '选择路径失败', true);
       }
     }
     function escapeHtml(value) {
@@ -1056,13 +1483,31 @@ INDEX_HTML = r"""<!doctype html>
       if (document.getElementById('scriptFiles')) {
         scriptFiles.innerHTML = files.script_files.length ? files.script_files.map(f => `<div class="fileitem">${openButton(f)}</div>`).join('') : '<div class="empty">暂无脚本产出结果</div>';
       }
+      if (document.getElementById('adaptedScriptFiles')) {
+        adaptedScriptFiles.innerHTML = files.adapted_script_files.length ? files.adapted_script_files.map(f => `<div class="fileitem">${openButton(f)}</div>`).join('') : '<div class="empty">暂无脚本适配结果</div>';
+      }
+      if (document.getElementById('adaptSourceScriptFiles')) {
+        adaptSourceScriptFiles.innerHTML = files.script_files.length ? files.script_files.map(f => `<div class="fileitem">${openButton(f)}</div>`).join('') : '<div class="empty">暂无可选成品脚本</div>';
+      }
+      if (document.getElementById('assembledVideoFiles')) {
+        assembledVideoFiles.innerHTML = files.assembled_video_files.length ? files.assembled_video_files.map(f => `<div class="fileitem">${openButton(f)}</div>`).join('') : '<div class="empty">暂无组合输出</div>';
+      }
+      if (document.getElementById('publishRecordFiles')) {
+        publishRecordFiles.innerHTML = files.publish_record_files.length ? files.publish_record_files.map(f => `<div class="fileitem">${openButton(f)}</div>`).join('') : '<div class="empty">暂无发布记录</div>';
+      }
+      if (document.getElementById('metricsFiles')) {
+        metricsFiles.innerHTML = files.metrics_files.length ? files.metrics_files.map(f => `<div class="fileitem">${openButton(f)}</div>`).join('') : '<div class="empty">暂无数据回收结果</div>';
+      }
+      if (document.getElementById('optimizationFiles')) {
+        optimizationFiles.innerHTML = files.optimization_files.length ? files.optimization_files.map(f => `<div class="fileitem">${openButton(f)}</div>`).join('') : '<div class="empty">暂无脚本优化结果</div>';
+      }
     }
     async function refresh() {
       const st = await api('/api/status');
       dot.className = 'dot' + (st.running ? ' running' : '');
       statusText.textContent = st.running ? `运行中：${st.task}` : (st.exit_code === null ? '未运行' : `已结束：${st.exit_code}`);
       const logText = (st.logs || []).join('\n');
-      [collectLogs, analyzeLogs, scriptLogs].forEach(el => {
+      document.querySelectorAll('pre').forEach(el => {
         if (el) {
           el.textContent = logText;
           el.scrollTop = el.scrollHeight;
@@ -1098,7 +1543,18 @@ class Handler(BaseHTTPRequestHandler):
         path = parsed.path
         query = parse_qs(parsed.query)
         try:
-            if path in ("/", "/collect", "/product", "/analyze", "/script"):
+            if path in (
+                "/",
+                "/collect",
+                "/product",
+                "/analyze",
+                "/script",
+                "/adapt",
+                "/assemble",
+                "/publish",
+                "/metrics",
+                "/optimize",
+            ):
                 body = INDEX_HTML.encode("utf-8")
                 self.send_response(200)
                 self.send_header("Content-Type", "text/html; charset=utf-8")
@@ -1136,6 +1592,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, save_teardown_defaults(self._read_json()))
             elif path == "/api/script-defaults":
                 self._json(200, save_script_defaults(self._read_json()))
+            elif path == "/api/content-workflow-defaults":
+                self._json(200, save_content_workflow_defaults(self._read_json()))
             elif path == "/api/run/full":
                 JOBS.start("一键采集", [sys.executable, "scripts/run_collection_pipeline.py"])
                 self._json(200, {"ok": True})
@@ -1146,6 +1604,21 @@ class Handler(BaseHTTPRequestHandler):
             elif path == "/api/run/script":
                 validate_script_generation_input(load_config())
                 JOBS.start("脚本产出", [sys.executable, "scripts/generate_product_script.py"])
+                self._json(200, {"ok": True})
+            elif path == "/api/run/adapt":
+                JOBS.start("脚本适配", [sys.executable, "scripts/content_workflow_stage.py", "adapt"])
+                self._json(200, {"ok": True})
+            elif path == "/api/run/assemble":
+                JOBS.start("片段组合", [sys.executable, "scripts/content_workflow_stage.py", "assemble"])
+                self._json(200, {"ok": True})
+            elif path == "/api/run/publish":
+                JOBS.start("视频发布", [sys.executable, "scripts/content_workflow_stage.py", "publish"])
+                self._json(200, {"ok": True})
+            elif path == "/api/run/metrics":
+                JOBS.start("数据回收", [sys.executable, "scripts/content_workflow_stage.py", "metrics"])
+                self._json(200, {"ok": True})
+            elif path == "/api/run/optimize":
+                JOBS.start("脚本优化", [sys.executable, "scripts/content_workflow_stage.py", "optimize"])
                 self._json(200, {"ok": True})
             elif path == "/api/open-path":
                 payload = self._read_json()
@@ -1160,6 +1633,10 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, {"path": selected})
             elif path == "/api/choose-script-reference-path":
                 selected = choose_script_reference_path()
+                self._json(200, {"path": selected})
+            elif path == "/api/choose-path":
+                payload = self._read_json()
+                selected = choose_local_path(payload.get("kind", "file"), payload.get("prompt", "选择文件"))
                 self._json(200, {"path": selected})
             elif path == "/api/stop":
                 self._json(200, {"stopped": JOBS.stop()})
@@ -1177,6 +1654,11 @@ def main():
     DOWNLOAD_DIR.mkdir(exist_ok=True)
     ANALYSIS_DIR.mkdir(exist_ok=True)
     SCRIPT_OUTPUT_DIR.mkdir(exist_ok=True)
+    ADAPTED_SCRIPT_DIR.mkdir(exist_ok=True)
+    ASSEMBLED_VIDEO_DIR.mkdir(exist_ok=True)
+    PUBLISH_RECORD_DIR.mkdir(exist_ok=True)
+    METRICS_DIR.mkdir(exist_ok=True)
+    SCRIPT_OPTIMIZATION_DIR.mkdir(exist_ok=True)
     KNOWLEDGE_BASE_DIR.mkdir(exist_ok=True)
     server = ThreadingHTTPServer((HOST, PORT), Handler)
     url = f"http://{HOST}:{PORT}"

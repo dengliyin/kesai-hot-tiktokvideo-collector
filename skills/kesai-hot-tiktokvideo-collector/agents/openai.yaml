@@ -1,4 +1,4 @@
 interface:
   display_name: "科赛力量爆款收集专家"
-  short_description: "运行产品信息、爆款采集、视频拆解和脚本产出流程"
-  default_prompt: "Use $kesai-hot-tiktokvideo-collector to run product info, FastMoss collection, video download, teardown, and product script generation workflows with my provided parameters."
+  short_description: "运行产品内容量化分发闭环"
+  default_prompt: "Use $kesai-hot-tiktokvideo-collector to run product info, FastMoss collection, video download, teardown, product script generation, script adaptation, clip assembly, publishing record, metrics recovery, and script optimization workflows with my provided parameters."

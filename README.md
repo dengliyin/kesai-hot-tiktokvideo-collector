@@ -1,6 +1,6 @@
 # 科赛力量爆款收集专家
 
-本地 Web 控制台，用于按 FastMoss 商品搜索条件采集 TikTok 商品关联视频数据，并通过达人精灵下载无水印视频。
+本地 Web 控制台，用于从产品信息出发，完成竞品爆款采集、视频拆解、脚本产出、脚本适配、片段组合、发布记录、数据回收和脚本优化的闭环。
 
 ## 启动
 
@@ -32,8 +32,12 @@ http://127.0.0.1:8765
 6. 一键采集会先生成 CSV，再读取 CSV 的 `tiktok_video_url` 自动下载视频。
 7. 切换到「视频拆解」页面，选择本地 MP4 或视频目录，把竞品爆款视频拆解成结构化脚本。
 8. 切换到「脚本产出」页面，选择竞品拆解结果，结合「产品信息」生成自家产品带货脚本。
-9. 如果遇到验证码或滑块，勾选「显示浏览器窗口」后重新运行，在弹出的浏览器里手动完成验证。
-10. CSV 会出现在 `storage/`，视频会出现在 `downloads/<CSV文件名>/`，拆解结果会出现在 `analysis/`，脚本产出会出现在 `script_outputs/`。
+9. 切换到「脚本适配」页面，把成品脚本拆成适合 Veo/可灵等模型的 8 秒以内片段提示词，并生成首帧图描述。
+10. 切换到「片段组合」页面，把生成好的片段组合成完整视频。
+11. 切换到「视频发布」页面，生成发布计划/记录；自动发布接口后续接入。
+12. 切换到「数据回收」页面，统一回收每条视频的播放、互动、点击、成交等数据。
+13. 切换到「脚本优化」页面，根据同一脚本产出的所有视频数据做加权评估并产出优化建议。
+14. 如果遇到验证码或滑块，勾选「显示浏览器窗口」后重新运行，在弹出的浏览器里手动完成验证。
 
 ## 产品信息
 
@@ -122,3 +126,25 @@ python3 scripts/generate_product_script.py
 ```
 
 结果会输出到本地 `script_outputs/`，该目录不会提交到 Git。
+
+## 内容分发闭环
+
+新增的五个页面先提供可运行框架，方便逐步接入真实模型和平台接口：
+
+- 「脚本适配」读取 `script_outputs/` 中的成品脚本，输出 `adapted_scripts/`，结构包含每个视频片段的时长上限、视频生成提示词草案和首帧图描述。
+- 「片段组合」读取一个视频片段目录，输出 `assembled_videos/`。如果本机有 `ffmpeg` 且目录内有 mp4/mov，会尝试无转码合并；否则输出组合清单。
+- 「视频发布」输出 `publish_records/`，当前是发布计划/记录框架，不会自动登录或发布 TikTok。
+- 「数据回收」读取平台导出的 CSV 或手动数据，输出 `metrics/`，会先做数值字段汇总。
+- 「脚本优化」读取原脚本和数据回收结果，输出 `script_optimizations/`，先形成加权评估和优化建议框架。
+
+命令行也可以分别运行：
+
+```bash
+python3 scripts/content_workflow_stage.py adapt
+python3 scripts/content_workflow_stage.py assemble
+python3 scripts/content_workflow_stage.py publish
+python3 scripts/content_workflow_stage.py metrics
+python3 scripts/content_workflow_stage.py optimize
+```
+
+这些输出目录都只保存在本地，不会提交到 Git。

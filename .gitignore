@@ -13,5 +13,10 @@ browser-profile/
 downloads/
 analysis/
 script_outputs/
+adapted_scripts/
+assembled_videos/
+publish_records/
+metrics/
+script_optimizations/
 app.log
 app.pid

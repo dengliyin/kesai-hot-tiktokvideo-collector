@@ -1,13 +1,13 @@
 ---
 name: kesai-hot-tiktokvideo-collector
-description: Run and maintain the local "科赛力量爆款收集专家" app for product context storage, FastMoss TikTok product/video collection, Kolsprite video downloads, Gemini/ModelMesh video teardown, and product script generation. Use when the user asks to collect FastMoss product-linked TikTok video data, export TikTok video URLs, download videos from collected URLs, analyze downloaded TikTok videos into scripts, generate product sales scripts from teardown results and product information, adjust the app workflow, update saved task parameters, or troubleshoot this specific collector.
+description: Run and maintain the local "科赛力量爆款收集专家" app for product context storage, FastMoss TikTok product/video collection, Kolsprite video downloads, Gemini/ModelMesh video teardown, product script generation, script adaptation, clip assembly, publishing records, metrics recovery, and script optimization. Use when the user asks to collect FastMoss product-linked TikTok video data, export TikTok video URLs, download videos from collected URLs, analyze downloaded TikTok videos into scripts, generate product sales scripts from teardown results and product information, adapt scripts for video generation models, combine generated clips, prepare TikTok publishing records, recover video metrics, optimize scripts from performance data, adjust the app workflow, update saved task parameters, or troubleshoot this specific collector.
 ---
 
 # 科赛力量爆款收集专家
 
 ## Overview
 
-Use the local collector project to store product context, search FastMoss products by keyword, country/region, and a three-level category path, collect product-linked video metrics and TikTok URLs, download the corresponding no-watermark MP4 files through Kolsprite, tear down downloaded videos with Gemini/ModelMesh, and generate new product sales scripts from competitor teardown results plus the saved product profile.
+Use the local collector project to store product context, search FastMoss products by keyword, country/region, and a three-level category path, collect product-linked video metrics and TikTok URLs, download the corresponding no-watermark MP4 files through Kolsprite, tear down downloaded videos with Gemini/ModelMesh, generate new product sales scripts from competitor teardown results plus the saved product profile, adapt scripts for video generation models, assemble generated clips, record publishing plans, recover performance metrics, and optimize scripts from data.
 
 The canonical project root on this machine is:
 
@@ -28,6 +28,7 @@ Collect or confirm these values before running a new task:
 - Product link count.
 - Video count per product.
 - For script generation: a competitor video teardown Markdown file, target country/region, target language, total duration, hook duration, and optional emotion/framework/reference-case notes.
+- For the content distribution loop: an output script, target video generation model, generated clip folder, publishing account alias/caption/tags, exported metrics CSV or manual metrics, and the script to optimize.
 
 The app stores parameters in `app_config.json`. This file contains local credentials and must not be committed or printed back verbatim.
 
@@ -47,7 +48,7 @@ The app stores parameters in `app_config.json`. This file contains local credent
 http://127.0.0.1:8765
 ```
 
-5. The app has separate pages under the same local entry in workflow order: `/product` for local product context storage, `/collect` for collection/download, `/analyze` for Gemini video teardown, and `/script` for generating new product sales scripts.
+5. The app has separate pages under the same local entry in workflow order: `/product`, `/collect`, `/analyze`, `/script`, `/adapt`, `/assemble`, `/publish`, `/metrics`, and `/optimize`.
 6. For a direct command-line run, execute the full pipeline:
 
 ```bash
@@ -102,6 +103,15 @@ The script generation phase:
 - The default script generation prompt is stored at `knowledge_base/script_generation_prompt.md`. It is local-only and ignored by Git.
 - Results are written to local `script_outputs/`.
 
+The content distribution loop:
+
+- `/adapt` turns a finished script into video-model-friendly segment prompts and first-frame image descriptions. Results are written to `adapted_scripts/`.
+- `/assemble` combines generated clip files into a full video when `ffmpeg` is available, or writes an assembly manifest. Results are written to `assembled_videos/`.
+- `/publish` creates publishing plans/records for TikTok accounts. It does not auto-publish until an account authorization method is explicitly added. Records are written to `publish_records/`.
+- `/metrics` recovers video performance data from CSV or manual input, then writes normalized summaries to `metrics/`.
+- `/optimize` uses the source script plus recovered metrics to create weighted evaluation and optimization suggestions. Results are written to `script_optimizations/`.
+- These five stages currently provide runnable scaffolds through `scripts/content_workflow_stage.py`; treat them as framework entry points until the user asks to wire a specific video generation, publishing, or analytics provider.
+
 Run a single-video minimal test with:
 
 ```bash
@@ -118,6 +128,16 @@ Generate a product script from the saved script settings with:
 
 ```bash
 python3 scripts/generate_product_script.py
+```
+
+Run a content distribution scaffold stage with:
+
+```bash
+python3 scripts/content_workflow_stage.py adapt
+python3 scripts/content_workflow_stage.py assemble
+python3 scripts/content_workflow_stage.py publish
+python3 scripts/content_workflow_stage.py metrics
+python3 scripts/content_workflow_stage.py optimize
 ```
 
 ## Outputs
@@ -148,7 +168,7 @@ TikTok视频ID.mp4
 ## Safety Rules
 
 - Never commit `app_config.json`, `fastmoss_config.json`, `storage/`, `browser-profile/`, `downloads/`, `app.log`, or generated MP4/CSV files.
-- Never commit `analysis/`, `knowledge_base/`, `script_outputs/`, model API keys, or the user's proprietary teardown/script prompts, teardown knowledge base, product profile, or generated scripts.
+- Never commit `analysis/`, `knowledge_base/`, `script_outputs/`, `adapted_scripts/`, `assembled_videos/`, `publish_records/`, `metrics/`, `script_optimizations/`, model API keys, or the user's proprietary teardown/script prompts, teardown knowledge base, product profile, generated scripts, generated clips, publishing records, or performance data.
 - Never commit real task keywords in examples, defaults, docs, or skill text. Use an empty value or a generic placeholder.
 - Do not print the saved FastMoss password in final responses or logs beyond what the app already masks in its UI.
 - Prefer the app and existing scripts over ad hoc browser automation unless debugging a selector failure.
