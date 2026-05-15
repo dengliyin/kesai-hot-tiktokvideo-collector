@@ -695,7 +695,10 @@ INDEX_HTML = r"""<!doctype html>
     </div>
     <div class="workspace">
     <section>
-      <h2>任务参数</h2>
+      <div class="sectionhead">
+        <h2>爆款采集参数</h2>
+        <span class="filemeta">本地保存</span>
+      </div>
       <label>手机号</label>
       <input id="phone" autocomplete="off" />
       <label>密码</label>
@@ -712,7 +715,7 @@ INDEX_HTML = r"""<!doctype html>
       </div>
       <label class="checkline"><input id="show_browser" type="checkbox" /> 显示浏览器窗口</label>
       <div class="buttons">
-        <button class="primary" onclick="saveConfig()">保存参数</button>
+        <button class="primary" onclick="saveConfig()">保存设置</button>
         <button class="blue" onclick="startTask('full')">一键采集</button>
         <button class="danger" onclick="stopTask()">停止任务</button>
       </div>
@@ -867,7 +870,7 @@ INDEX_HTML = r"""<!doctype html>
     <div class="workspace">
     <section>
       <div class="sectionhead">
-        <h2>视频拆解默认设置</h2>
+        <h2>视频拆解参数</h2>
         <span class="filemeta">本地保存</span>
       </div>
       <label>ModelMesh API Key</label>
@@ -896,7 +899,7 @@ INDEX_HTML = r"""<!doctype html>
       <label>爆款视频拆解提示词</label>
       <textarea id="video_analysis_prompt" class="prompt" placeholder="粘贴或修改你的爆款视频拆解提示词；留空时使用最小测试提示词"></textarea>
       <div class="buttons">
-        <button class="primary" onclick="saveTeardownDefaults()">保存默认设置</button>
+        <button class="primary" onclick="saveTeardownDefaults()">保存设置</button>
         <button class="blue" onclick="startTask('analyze')">拆解视频</button>
         <button class="danger" onclick="stopTask()">停止任务</button>
       </div>
@@ -971,7 +974,7 @@ INDEX_HTML = r"""<!doctype html>
       <label>改写提示词内容</label>
       <textarea id="script_generation_prompt" class="scriptprompt" placeholder="这里会读取本地改写提示词；负责规定怎么根据拆解结果和产品信息复刻脚本。"></textarea>
       <div class="buttons">
-        <button class="primary" onclick="saveScriptDefaults()">保存脚本设置</button>
+        <button class="primary" onclick="saveScriptDefaults()">保存设置</button>
         <button class="blue" onclick="startTask('script')">生成脚本</button>
         <button class="danger" onclick="stopTask()">停止任务</button>
       </div>
@@ -1003,8 +1006,8 @@ INDEX_HTML = r"""<!doctype html>
     <div class="workspace">
     <section>
       <div class="sectionhead">
-        <h2>适配参数</h2>
-        <span class="filemeta">框架版</span>
+        <h2>脚本适配参数</h2>
+        <span class="filemeta">本地保存</span>
       </div>
       <label>成品脚本路径</label>
       <div class="pathrow">
@@ -1063,8 +1066,8 @@ INDEX_HTML = r"""<!doctype html>
     <div class="workspace">
     <section>
       <div class="sectionhead">
-        <h2>组合参数</h2>
-        <span class="filemeta">框架版</span>
+        <h2>片段组合参数</h2>
+        <span class="filemeta">本地保存</span>
       </div>
       <label>片段目录</label>
       <div class="pathrow">
@@ -1105,8 +1108,8 @@ INDEX_HTML = r"""<!doctype html>
     <div class="workspace">
     <section>
       <div class="sectionhead">
-        <h2>发布参数</h2>
-        <span class="filemeta">计划/记录</span>
+        <h2>视频发布参数</h2>
+        <span class="filemeta">本地保存</span>
       </div>
       <label>待发布视频</label>
       <div class="pathrow">
@@ -1160,8 +1163,8 @@ INDEX_HTML = r"""<!doctype html>
     <div class="workspace">
     <section>
       <div class="sectionhead">
-        <h2>回收参数</h2>
-        <span class="filemeta">框架版</span>
+        <h2>数据回收参数</h2>
+        <span class="filemeta">本地保存</span>
       </div>
       <label>数据文件</label>
       <div class="pathrow">
@@ -1200,8 +1203,8 @@ INDEX_HTML = r"""<!doctype html>
     <div class="workspace">
     <section>
       <div class="sectionhead">
-        <h2>优化参数</h2>
-        <span class="filemeta">框架版</span>
+        <h2>脚本优化参数</h2>
+        <span class="filemeta">本地保存</span>
       </div>
       <label>原脚本路径</label>
       <div class="pathrow">
@@ -1347,7 +1350,7 @@ INDEX_HTML = r"""<!doctype html>
       };
       await api('/api/config', {method:'POST', body:JSON.stringify(payload)});
       await refresh();
-      if (!silent) alert('参数已保存');
+      if (!silent) alert('爆款采集设置已保存到本地');
     }
     async function saveTeardownDefaults(silent=false) {
       const payload = {
@@ -1360,7 +1363,7 @@ INDEX_HTML = r"""<!doctype html>
       };
       await api('/api/teardown-defaults', {method:'POST', body:JSON.stringify(payload)});
       await refresh();
-      if (!silent) alert('视频拆解默认设置已保存到本地');
+      if (!silent) alert('视频拆解设置已保存到本地');
     }
     async function saveScriptDefaults(silent=false) {
       const payload = {
