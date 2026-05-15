@@ -27,7 +27,7 @@ Collect or confirm these values before running a new task:
 - Three-level category path, separated with `>`, such as `美妆个护 > 头部护理与造型 > 染发用品`.
 - Product link count.
 - Video count per product.
-- For script generation: a competitor video teardown Markdown file, target country/region, target language, total duration, hook duration, and optional emotion/framework/reference-case notes.
+- For script generation: a competitor video teardown Markdown file selected from prior analysis results, target country/region, target language, total duration, hook duration, and optional audio emotion notes. Do not ask the user to manually enter a material framework or reference case; extract those from the selected teardown Markdown.
 - For the content distribution loop: an output script, target video generation model, generated clip folder, publishing account alias/caption/tags, exported metrics CSV or manual metrics, and the script to optimize.
 
 The app stores parameters in `app_config.json`. This file contains local credentials and must not be committed or printed back verbatim.
@@ -98,8 +98,8 @@ The product profile phase:
 
 The script generation phase:
 
-- The Web UI has a separate "脚本产出" page for turning four inputs into a new product sales script: rewrite prompt, competitor teardown Markdown, saved product profile, and shared content knowledge base.
-- It reads `product_profile`, `video_teardown_knowledge_base_path`, `script_generation_prompt_path`, `script_reference_analysis_path`, `script_country`, `script_target_language`, `script_total_duration`, `script_hook_duration`, `script_audio_emotion`, `script_material_framework`, and `script_reference_case` from local `app_config.json`.
+- The Web UI has a separate "脚本产出" page for turning four inputs into a new product sales script: rewrite prompt, selected competitor teardown Markdown, saved product profile, and shared content knowledge base. The selected teardown Markdown is the reference case; material framework and case rhythm are extracted from it automatically.
+- It reads `product_profile`, `video_teardown_knowledge_base_path`, `script_generation_prompt_path`, `script_reference_analysis_path`, `script_country`, `script_target_language`, `script_total_duration`, `script_hook_duration`, and `script_audio_emotion` from local `app_config.json`.
 - The default rewrite prompt is stored at `knowledge_base/script_generation_prompt.md`. The shared content knowledge base is stored at `knowledge_base/hot_content_knowledge_base.md`. Both are local-only and ignored by Git.
 - Results are written to local `script_outputs/`.
 

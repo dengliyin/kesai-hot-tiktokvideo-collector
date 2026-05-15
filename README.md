@@ -112,7 +112,7 @@ python3 scripts/analyze_video_teardown.py /path/to/video.mp4
 在同一个本地入口切换到「脚本产出」页面，核心输入是四类：
 
 - 改写提示词：规定怎么复刻和改写。
-- 竞品拆解结果：来自 `analysis/` 的 Markdown，提供具体爆款案例。
+- 参考爆款拆解结果：来自 `analysis/` 的 Markdown，提供具体爆款案例；素材框架和参考案例会从这个拆解结果中自动提取，不需要手动填写。
 - 产品信息：来自「产品信息」页保存的 `product_profile`。
 - 爆款内容知识库：与视频拆解共用 `knowledge_base/hot_content_knowledge_base.md`，提供长期方法论和素材框架。
 

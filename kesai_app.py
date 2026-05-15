@@ -82,8 +82,6 @@ DEFAULT_CONFIG = {
     "script_generation_prompt_path": "knowledge_base/script_generation_prompt.md",
     "script_reference_analysis_path": "",
     "script_country": "",
-    "script_material_framework": "",
-    "script_reference_case": "",
     "script_audio_emotion": "",
     "script_target_language": "",
     "script_total_duration": "40s",
@@ -191,6 +189,8 @@ def load_config():
             merged.get("video_teardown_knowledge_base_path")
         )
         merged["product_profile"] = normalize_product_profile(merged.get("product_profile", {}))
+        merged.pop("script_material_framework", None)
+        merged.pop("script_reference_case", None)
         return merged
     return DEFAULT_CONFIG.copy()
 
@@ -236,6 +236,8 @@ def save_config(config):
     config["analysis_input_path"] = str(config.get("analysis_input_path", "")).strip()
     config["product_profile"] = normalize_product_profile(config.get("product_profile", {}))
     config.pop("analysis_video_limit", None)
+    config.pop("script_material_framework", None)
+    config.pop("script_reference_case", None)
     CONFIG_PATH.write_text(json.dumps(config, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return config
 
@@ -345,10 +347,6 @@ def save_script_defaults(payload):
         payload.get("script_reference_analysis_path", config.get("script_reference_analysis_path", ""))
     ).strip()
     config["script_country"] = str(payload.get("script_country", config.get("script_country", ""))).strip()
-    config["script_material_framework"] = str(
-        payload.get("script_material_framework", config.get("script_material_framework", ""))
-    )
-    config["script_reference_case"] = str(payload.get("script_reference_case", config.get("script_reference_case", "")))
     config["script_audio_emotion"] = str(payload.get("script_audio_emotion", config.get("script_audio_emotion", ""))).strip()
     config["script_target_language"] = str(
         payload.get("script_target_language", config.get("script_target_language", ""))
@@ -932,11 +930,11 @@ INDEX_HTML = r"""<!doctype html>
       </div>
       <div class="infoItem">
         <strong>输入结构</strong>
-        <span class="muted">脚本产出 = 改写提示词 + 竞品拆解结果 + 产品信息 + 爆款内容知识库。</span>
+        <span class="muted">脚本产出 = 改写提示词 + 参考爆款拆解结果 + 产品信息 + 爆款内容知识库。</span>
       </div>
-      <label>竞品视频拆解结果</label>
+      <label>参考爆款拆解结果</label>
       <div class="pathrow">
-        <input id="script_reference_analysis_path" placeholder="请选择一个视频拆解结果 .md 文件" />
+        <input id="script_reference_analysis_path" placeholder="从右侧可选拆解结果中选择，或手动选择 .md 文件" />
         <button onclick="chooseScriptReferencePath()">选择拆解结果</button>
         <button onclick="openLocalPath(script_reference_analysis_path.value)">打开文件</button>
       </div>
@@ -962,10 +960,6 @@ INDEX_HTML = r"""<!doctype html>
       </div>
       <label>音频情绪强度</label>
       <input id="script_audio_emotion" placeholder="例如：毒舌犀利 / 离职博主爆料 / 强度 8" />
-      <label>素材框架</label>
-      <textarea id="script_material_framework" class="tall" placeholder="可粘贴素材类型序号和框架公式；留空时从竞品拆解结果中自动提取。"></textarea>
-      <label>参考案例补充</label>
-      <textarea id="script_reference_case" class="tall" placeholder="可粘贴同类型案例全文；留空时直接使用选中的竞品视频拆解结果。"></textarea>
       <label>爆款内容知识库文件（与视频拆解共用）</label>
       <div class="pathrow">
         <input id="script_content_knowledge_base_path" placeholder="knowledge_base/hot_content_knowledge_base.md" />
@@ -989,7 +983,7 @@ INDEX_HTML = r"""<!doctype html>
           <div id="scriptFiles" class="muted">加载中...</div>
         </div>
         <div class="filebox">
-          <h2>可选拆解结果</h2>
+          <h2>可选爆款拆解结果</h2>
           <div id="scriptAnalysisFiles" class="muted">加载中...</div>
         </div>
       </div>
@@ -1308,8 +1302,6 @@ INDEX_HTML = r"""<!doctype html>
       script_content_knowledge_base_path.value = cfg.video_teardown_knowledge_base_path || 'knowledge_base/hot_content_knowledge_base.md';
       script_reference_analysis_path.value = cfg.script_reference_analysis_path || '';
       script_country.value = cfg.script_country || cfg.country || '';
-      script_material_framework.value = cfg.script_material_framework || '';
-      script_reference_case.value = cfg.script_reference_case || '';
       script_audio_emotion.value = cfg.script_audio_emotion || '';
       script_target_language.value = cfg.script_target_language || '';
       script_total_duration.value = cfg.script_total_duration || '40s';
@@ -1371,8 +1363,6 @@ INDEX_HTML = r"""<!doctype html>
         video_teardown_knowledge_base_path: script_content_knowledge_base_path.value.trim(),
         script_reference_analysis_path: script_reference_analysis_path.value.trim(),
         script_country: script_country.value.trim(),
-        script_material_framework: script_material_framework.value,
-        script_reference_case: script_reference_case.value,
         script_audio_emotion: script_audio_emotion.value.trim(),
         script_target_language: script_target_language.value.trim(),
         script_total_duration: script_total_duration.value.trim(),

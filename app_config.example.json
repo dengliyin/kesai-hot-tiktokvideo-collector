@@ -21,8 +21,6 @@
   "script_generation_prompt_path": "knowledge_base/script_generation_prompt.md",
   "script_reference_analysis_path": "",
   "script_country": "",
-  "script_material_framework": "",
-  "script_reference_case": "",
   "script_audio_emotion": "",
   "script_target_language": "",
   "script_total_duration": "40s",

@@ -129,13 +129,11 @@ def build_generation_prompt(config):
     content_knowledge = get_content_knowledge_base(config)
     product_manual = product_profile_to_markdown(config.get("product_profile", {}))
     competitor_teardown = read_text_file(reference_path)
-    manual_reference_case = str(config.get("script_reference_case", "") or "").strip()
 
     country = str(config.get("script_country", "") or config.get("country", "") or "").strip()
     target_language = str(config.get("script_target_language", "") or "").strip()
     total_duration = str(config.get("script_total_duration", "") or "40s").strip()
     hook_duration = str(config.get("script_hook_duration", "") or "8s").strip()
-    material_framework = str(config.get("script_material_framework", "") or "").strip()
     audio_emotion = str(config.get("script_audio_emotion", "") or "").strip()
 
     variables = f"""# 自动导入变量
@@ -150,10 +148,10 @@ def build_generation_prompt(config):
 {content_knowledge or "未填写爆款内容知识库。请优先参考竞品视频拆解结果，但后续建议补充素材类型、原生感、转化逻辑等长期知识。"}
 
 素材框架：
-{material_framework or "请从竞品视频拆解结果中提取主框架；如果拆解结果沉淀了新素材类型，则优先沿用该新素材类型。"}
+请从下方竞品视频拆解结果中自动识别主框架；如果拆解结果沉淀了新素材类型，则优先沿用该新素材类型。
 
 参考案例：
-{manual_reference_case or "以下竞品视频拆解结果即为本次复刻参考案例，请平移其心理诱因、情绪节奏、转场力度和话术杀伤力。"}
+以下竞品视频拆解结果即为本次复刻参考案例，请平移其心理诱因、情绪节奏、转场力度和话术杀伤力。
 
 竞品视频拆解结果：
 {competitor_teardown}
