@@ -82,12 +82,12 @@ The download phase:
 
 The Gemini teardown test phase:
 
-- Reads `modelmesh_api_key`, `modelmesh_base_url`, `video_analysis_model`, `analysis_input_path`, `video_analysis_prompt`, and `video_teardown_knowledge_base_path` from local `app_config.json` or environment variables.
+- Reads `modelmesh_api_key`, `modelmesh_base_url`, `video_analysis_model`, `analysis_input_path`, `video_analysis_prompt`, and the shared content knowledge base path from local `app_config.json` or environment variables.
 - Calls the Shengsuanyun/ModelMesh Gemini-compatible endpoint with a local MP4 as base64 inline video.
 - Uses `google/gemini-3-flash` by default.
 - Writes Markdown and raw JSON results to local `analysis/`.
-- The Web UI has a separate "视频拆解" page for editing and locally saving the API key, model, teardown prompt, video teardown knowledge base, and a manual video path. The path can be a directory of MP4 files or a single MP4 file; directories are analyzed in full, single files are analyzed alone, and the path is required. The teardown page does not automatically use collection download folders.
-- The first local video teardown knowledge base is stored at `knowledge_base/video_teardown_knowledge_base.md`. It is local-only and ignored by Git. Use it for competitor/video teardown methodology; do not mix product profile context into this phase.
+- The Web UI has a separate "视频拆解" page for editing and locally saving the API key, model, teardown prompt, shared hot-content knowledge base, and a manual video path. The path can be a directory of MP4 files or a single MP4 file; directories are analyzed in full, single files are analyzed alone, and the path is required. The teardown page does not automatically use collection download folders.
+- The first local shared content knowledge base is stored at `knowledge_base/hot_content_knowledge_base.md`. It is local-only and ignored by Git. Use it for competitor/video teardown methodology and script rewriting methodology; product profile context still lives separately under `product_profile`. Legacy local files named `knowledge_base/video_teardown_knowledge_base.md` are read as a fallback only.
 
 The product profile phase:
 
@@ -98,9 +98,9 @@ The product profile phase:
 
 The script generation phase:
 
-- The Web UI has a separate "脚本产出" page for turning a selected competitor teardown Markdown plus saved product profile into a new product sales script.
-- It reads `product_profile`, `script_generation_prompt_path`, `script_reference_analysis_path`, `script_country`, `script_target_language`, `script_total_duration`, `script_hook_duration`, `script_audio_emotion`, `script_material_framework`, and `script_reference_case` from local `app_config.json`.
-- The default script generation prompt is stored at `knowledge_base/script_generation_prompt.md`. It is local-only and ignored by Git.
+- The Web UI has a separate "脚本产出" page for turning four inputs into a new product sales script: rewrite prompt, competitor teardown Markdown, saved product profile, and shared content knowledge base.
+- It reads `product_profile`, `video_teardown_knowledge_base_path`, `script_generation_prompt_path`, `script_reference_analysis_path`, `script_country`, `script_target_language`, `script_total_duration`, `script_hook_duration`, `script_audio_emotion`, `script_material_framework`, and `script_reference_case` from local `app_config.json`.
+- The default rewrite prompt is stored at `knowledge_base/script_generation_prompt.md`. The shared content knowledge base is stored at `knowledge_base/hot_content_knowledge_base.md`. Both are local-only and ignored by Git.
 - Results are written to local `script_outputs/`.
 
 The content distribution loop:

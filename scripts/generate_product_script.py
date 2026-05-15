@@ -19,6 +19,10 @@ from analyze_video_teardown import (
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_PROMPT_PATH = ROOT / "knowledge_base" / "script_generation_prompt.md"
+DEFAULT_CONTENT_KNOWLEDGE_PATH = ROOT / "knowledge_base" / "hot_content_knowledge_base.md"
+LEGACY_CONTENT_KNOWLEDGE_PATH = ROOT / "knowledge_base" / "video_teardown_knowledge_base.md"
+DEFAULT_CONTENT_KNOWLEDGE_CONFIG_PATH = "knowledge_base/hot_content_knowledge_base.md"
+LEGACY_CONTENT_KNOWLEDGE_CONFIG_PATH = "knowledge_base/video_teardown_knowledge_base.md"
 OUTPUT_ROOT = ROOT / "script_outputs"
 
 PRODUCT_FIELD_LABELS = {
@@ -60,14 +64,44 @@ def read_text_file(path):
     return path.read_text(encoding="utf-8").strip()
 
 
+def normalize_content_knowledge_path(value):
+    text = str(value or "").strip()
+    if not text or text == LEGACY_CONTENT_KNOWLEDGE_CONFIG_PATH:
+        return DEFAULT_CONTENT_KNOWLEDGE_CONFIG_PATH
+    return text
+
+
 def get_prompt_template(config):
     prompt = str(config.get("script_generation_prompt", "") or "").strip()
     if prompt:
         return prompt
     prompt_path = resolve_project_path(config.get("script_generation_prompt_path"), DEFAULT_PROMPT_PATH)
     if not prompt_path.exists():
-        raise SystemExit(f"脚本产出提示词文件不存在: {prompt_path}")
+        raise SystemExit(f"改写提示词文件不存在: {prompt_path}")
     return read_text_file(prompt_path)
+
+
+def get_content_knowledge_base(config):
+    knowledge_text = str(config.get("content_knowledge_base", "") or "").strip()
+    if knowledge_text:
+        return knowledge_text
+    knowledge_path = resolve_project_path(
+        normalize_content_knowledge_path(
+            config.get("content_knowledge_base_path")
+            or config.get("video_teardown_knowledge_base_path")
+            or DEFAULT_CONTENT_KNOWLEDGE_CONFIG_PATH
+        ),
+        DEFAULT_CONTENT_KNOWLEDGE_PATH,
+    )
+    candidates = [knowledge_path]
+    if knowledge_path != DEFAULT_CONTENT_KNOWLEDGE_PATH:
+        candidates.append(DEFAULT_CONTENT_KNOWLEDGE_PATH)
+    if LEGACY_CONTENT_KNOWLEDGE_PATH not in candidates:
+        candidates.append(LEGACY_CONTENT_KNOWLEDGE_PATH)
+    for candidate in candidates:
+        if candidate.exists():
+            return read_text_file(candidate)
+    return ""
 
 
 def product_profile_to_markdown(profile):
@@ -92,6 +126,7 @@ def build_generation_prompt(config):
         raise SystemExit(f"竞品视频拆解结果必须是 Markdown 文件: {reference_path.name}")
 
     prompt_template = get_prompt_template(config)
+    content_knowledge = get_content_knowledge_base(config)
     product_manual = product_profile_to_markdown(config.get("product_profile", {}))
     competitor_teardown = read_text_file(reference_path)
     manual_reference_case = str(config.get("script_reference_case", "") or "").strip()
@@ -110,6 +145,9 @@ def build_generation_prompt(config):
 
 产品手册信息：
 {product_manual}
+
+爆款内容知识库：
+{content_knowledge or "未填写爆款内容知识库。请优先参考竞品视频拆解结果，但后续建议补充素材类型、原生感、转化逻辑等长期知识。"}
 
 素材框架：
 {material_framework or "请从竞品视频拆解结果中提取主框架；如果拆解结果沉淀了新素材类型，则优先沿用该新素材类型。"}
@@ -134,7 +172,7 @@ def build_generation_prompt(config):
 
 ---
 
-# 脚本产出执行提示词
+# 改写提示词
 
 {prompt_template}
 
@@ -143,6 +181,7 @@ def build_generation_prompt(config):
 # 本次额外约束
 
 - 你正在做的是“脚本产出”：把竞品爆款视频的底层逻辑、情绪节奏、转场力度和话术杀伤力，改写成适配我方产品的新带货视频脚本。
+- 必须同时参考“改写提示词、竞品视频拆解结果、产品手册信息、爆款内容知识库”四类输入；其中爆款内容知识库负责约束素材框架、原生感、转化逻辑和复刻边界。
 - 竞品里的旧产品、旧痛点、旧机制不能照搬；必须映射到“产品手册信息”中的我方产品、人群、痛点、卖点、价格和适配场景。
 - 不要输出拆解报告，不要解释你怎么思考，直接输出可拍摄脚本。
 - 每个镜头都必须保留完整的画面、动作、光线、音效、音频文案、中文翻译和语速。
@@ -171,7 +210,7 @@ def generate_script(config, args):
 
     prompt = build_generation_prompt(config)
     if args.dry_run:
-        log(f"脚本产出提示词长度: {len(prompt)} 字符")
+        log(f"脚本产出完整上下文长度: {len(prompt)} 字符")
         log("dry-run 完成，未调用模型")
         return prompt, {}, "dry-run", "text"
 

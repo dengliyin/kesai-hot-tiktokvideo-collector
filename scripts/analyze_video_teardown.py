@@ -16,7 +16,10 @@ ROOT = Path(__file__).resolve().parents[1]
 CONFIG_PATH = ROOT / "app_config.json"
 LEGACY_CONFIG_PATH = ROOT / "fastmoss_config.json"
 OUTPUT_ROOT = ROOT / "analysis"
-DEFAULT_KNOWLEDGE_BASE_PATH = ROOT / "knowledge_base" / "video_teardown_knowledge_base.md"
+DEFAULT_KNOWLEDGE_BASE_PATH = ROOT / "knowledge_base" / "hot_content_knowledge_base.md"
+LEGACY_KNOWLEDGE_BASE_PATH = ROOT / "knowledge_base" / "video_teardown_knowledge_base.md"
+DEFAULT_KNOWLEDGE_BASE_CONFIG_PATH = "knowledge_base/hot_content_knowledge_base.md"
+LEGACY_KNOWLEDGE_BASE_CONFIG_PATH = "knowledge_base/video_teardown_knowledge_base.md"
 
 DEFAULT_MODEL = "google/gemini-3-flash"
 DEFAULT_BASE_URL = "https://router.shengsuanyun.com/api"
@@ -57,6 +60,13 @@ def resolve_project_path(value):
     return path.resolve()
 
 
+def normalize_knowledge_base_path(value):
+    text = str(value or "").strip()
+    if not text or text == LEGACY_KNOWLEDGE_BASE_CONFIG_PATH:
+        return DEFAULT_KNOWLEDGE_BASE_CONFIG_PATH
+    return text
+
+
 def get_base_prompt(args, config):
     if args.prompt_file:
         return Path(args.prompt_file).read_text(encoding="utf-8")
@@ -70,21 +80,26 @@ def get_base_prompt(args, config):
 
 
 def get_knowledge_base_text(args, config):
-    configured_path = (
+    configured_path = normalize_knowledge_base_path(
         getattr(args, "knowledge_file", "")
         or os.environ.get("VIDEO_TEARDOWN_KNOWLEDGE_BASE")
+        or config.get("content_knowledge_base_path")
         or config.get("video_teardown_knowledge_base_path")
-        or str(DEFAULT_KNOWLEDGE_BASE_PATH.relative_to(ROOT))
+        or DEFAULT_KNOWLEDGE_BASE_CONFIG_PATH
     )
     if not configured_path:
         return ""
 
     knowledge_path = resolve_project_path(configured_path)
-    if not knowledge_path.exists():
-        return ""
-
-    text = knowledge_path.read_text(encoding="utf-8").strip()
-    return text
+    candidates = [knowledge_path]
+    if knowledge_path != DEFAULT_KNOWLEDGE_BASE_PATH:
+        candidates.append(DEFAULT_KNOWLEDGE_BASE_PATH)
+    if LEGACY_KNOWLEDGE_BASE_PATH not in candidates:
+        candidates.append(LEGACY_KNOWLEDGE_BASE_PATH)
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate.read_text(encoding="utf-8").strip()
+    return ""
 
 
 def get_prompt(args, config):
@@ -93,7 +108,7 @@ def get_prompt(args, config):
     if not knowledge:
         return prompt
 
-    return f"""以下是本项目本地保存的【爆款视频拆解知识库】，它是你分析视频时必须参考的长期知识，但不能替代对当前视频画面的逐帧观察。
+    return f"""以下是本项目本地保存的【爆款内容知识库】，它是你分析视频时必须参考的长期知识，也会用于后续脚本改写，但不能替代对当前视频画面的逐帧观察。
 
 {knowledge}
 
@@ -218,7 +233,7 @@ def parse_args():
     parser.add_argument("--base-url", default="", help=f"中转 API base，默认 {DEFAULT_BASE_URL}")
     parser.add_argument("--prompt", default="", help="直接传入测试提示词")
     parser.add_argument("--prompt-file", default="", help="从本地文件读取提示词")
-    parser.add_argument("--knowledge-file", default="", help="从本地文件读取视频拆解知识库，默认读取 app_config.json 中的路径")
+    parser.add_argument("--knowledge-file", default="", help="从本地文件读取爆款内容知识库，默认读取 app_config.json 中的路径")
     parser.add_argument("--output-dir", default=str(OUTPUT_ROOT), help="分析结果输出目录")
     parser.add_argument("--timeout", type=int, default=180, help="单次请求超时时间，秒")
     parser.add_argument("--max-output-tokens", type=int, default=8192)

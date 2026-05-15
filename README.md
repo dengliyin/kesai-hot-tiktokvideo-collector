@@ -71,13 +71,13 @@ TikTok视频ID.mp4
 
 「拆解视频路径」可以手动填写，也可以点击「选择目录」批量拆解一个目录，或点击「选择视频」单独拆解一个 MP4。视频拆解和爆款采集互相独立，路径不能为空，也不会自动使用采集下载目录。
 
-视频拆解会同时读取本地知识库文件：
+视频拆解会同时读取本地「爆款内容知识库」文件：
 
 ```text
-knowledge_base/video_teardown_knowledge_base.md
+knowledge_base/hot_content_knowledge_base.md
 ```
 
-这份文件用于保存爆款视频拆解的长期方法论和判断标准，只保存在本机，不会提交到 Git。它只服务于“拆解竞品视频”；产品信息仍然保存在 `product_profile`，留给后续仿写脚本阶段调用。
+这份文件用于保存爆款内容方法论、素材类型、原生感规则、转化逻辑和判断标准，只保存在本机，不会提交到 Git。它同时服务于“竞品视频拆解”和“脚本产出改写”。旧版 `knowledge_base/video_teardown_knowledge_base.md` 会被兼容读取，但新配置统一使用 `hot_content_knowledge_base.md`。
 
 点击「保存默认设置」后，这些字段只保存在本地 `app_config.json`，不要提交到 Git：
 
@@ -87,7 +87,7 @@ knowledge_base/video_teardown_knowledge_base.md
   "modelmesh_base_url": "https://router.shengsuanyun.com/api",
   "video_analysis_model": "google/gemini-3-flash",
   "video_analysis_prompt": "",
-  "video_teardown_knowledge_base_path": "knowledge_base/video_teardown_knowledge_base.md",
+  "video_teardown_knowledge_base_path": "knowledge_base/hot_content_knowledge_base.md",
   "video_analysis_max_output_tokens": 32768,
   "analysis_input_path": ""
 }
@@ -109,15 +109,22 @@ python3 scripts/analyze_video_teardown.py /path/to/video.mp4
 
 ## 脚本产出
 
-在同一个本地入口切换到「脚本产出」页面，选择一个 `analysis/` 里的竞品视频拆解 Markdown，再填写国家/地区、目标语言、时长、钩子时长、音频情绪强度等变量。系统会自动读取「产品信息」页保存的 `product_profile`，把竞品爆款视频的逻辑和情绪节奏改写成适合自家产品的新带货脚本。
+在同一个本地入口切换到「脚本产出」页面，核心输入是四类：
 
-脚本产出的默认提示词保存在本地文件：
+- 改写提示词：规定怎么复刻和改写。
+- 竞品拆解结果：来自 `analysis/` 的 Markdown，提供具体爆款案例。
+- 产品信息：来自「产品信息」页保存的 `product_profile`。
+- 爆款内容知识库：与视频拆解共用 `knowledge_base/hot_content_knowledge_base.md`，提供长期方法论和素材框架。
+
+系统会把这四类输入合并，把竞品爆款视频的逻辑和情绪节奏改写成适合自家产品的新带货脚本。
+
+改写提示词默认保存在本地文件：
 
 ```text
 knowledge_base/script_generation_prompt.md
 ```
 
-这份提示词只保存在本机，不会提交到 Git。页面里修改并点击「保存脚本设置」后，会更新这份本地文件。
+这份提示词只保存在本机，不会提交到 Git。页面里修改并点击「保存脚本设置」后，会更新这份本地文件。爆款内容知识库也可以在脚本产出页查看和修改，修改后会同步影响视频拆解页。
 
 命令行生成脚本：
 

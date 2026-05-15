@@ -25,7 +25,10 @@ PUBLISH_RECORD_DIR = ROOT / "publish_records"
 METRICS_DIR = ROOT / "metrics"
 SCRIPT_OPTIMIZATION_DIR = ROOT / "script_optimizations"
 KNOWLEDGE_BASE_DIR = ROOT / "knowledge_base"
-DEFAULT_TEARDOWN_KNOWLEDGE_BASE_PATH = KNOWLEDGE_BASE_DIR / "video_teardown_knowledge_base.md"
+DEFAULT_TEARDOWN_KNOWLEDGE_BASE_PATH = KNOWLEDGE_BASE_DIR / "hot_content_knowledge_base.md"
+LEGACY_TEARDOWN_KNOWLEDGE_BASE_PATH = KNOWLEDGE_BASE_DIR / "video_teardown_knowledge_base.md"
+DEFAULT_TEARDOWN_KNOWLEDGE_BASE_CONFIG_PATH = "knowledge_base/hot_content_knowledge_base.md"
+LEGACY_TEARDOWN_KNOWLEDGE_BASE_CONFIG_PATH = "knowledge_base/video_teardown_knowledge_base.md"
 DEFAULT_SCRIPT_GENERATION_PROMPT_PATH = KNOWLEDGE_BASE_DIR / "script_generation_prompt.md"
 HOST = "127.0.0.1"
 PORT = int(os.environ.get("KESAI_APP_PORT", "8765"))
@@ -73,7 +76,7 @@ DEFAULT_CONFIG = {
     "modelmesh_base_url": "https://router.shengsuanyun.com/api",
     "video_analysis_model": "google/gemini-3-flash",
     "video_analysis_prompt": "",
-    "video_teardown_knowledge_base_path": "knowledge_base/video_teardown_knowledge_base.md",
+    "video_teardown_knowledge_base_path": DEFAULT_TEARDOWN_KNOWLEDGE_BASE_CONFIG_PATH,
     "video_analysis_max_output_tokens": 32768,
     "analysis_input_path": "",
     "script_generation_prompt_path": "knowledge_base/script_generation_prompt.md",
@@ -184,9 +187,19 @@ def load_config():
         with config_path.open(encoding="utf-8") as f:
             config = json.load(f)
         merged = DEFAULT_CONFIG | config
+        merged["video_teardown_knowledge_base_path"] = normalize_teardown_knowledge_base_path(
+            merged.get("video_teardown_knowledge_base_path")
+        )
         merged["product_profile"] = normalize_product_profile(merged.get("product_profile", {}))
         return merged
     return DEFAULT_CONFIG.copy()
+
+
+def normalize_teardown_knowledge_base_path(value):
+    text = str(value or "").strip()
+    if not text or text == LEGACY_TEARDOWN_KNOWLEDGE_BASE_CONFIG_PATH:
+        return DEFAULT_TEARDOWN_KNOWLEDGE_BASE_CONFIG_PATH
+    return text
 
 
 def normalize_product_profile(profile):
@@ -216,9 +229,9 @@ def save_config(config):
     config["modelmesh_base_url"] = str(config.get("modelmesh_base_url", DEFAULT_CONFIG["modelmesh_base_url"])).strip()
     config["video_analysis_model"] = str(config.get("video_analysis_model", DEFAULT_CONFIG["video_analysis_model"])).strip()
     config["video_analysis_prompt"] = str(config.get("video_analysis_prompt", ""))
-    config["video_teardown_knowledge_base_path"] = str(
+    config["video_teardown_knowledge_base_path"] = normalize_teardown_knowledge_base_path(
         config.get("video_teardown_knowledge_base_path", DEFAULT_CONFIG["video_teardown_knowledge_base_path"])
-    ).strip()
+    )
     config["video_analysis_max_output_tokens"] = int(config.get("video_analysis_max_output_tokens", 32768))
     config["analysis_input_path"] = str(config.get("analysis_input_path", "")).strip()
     config["product_profile"] = normalize_product_profile(config.get("product_profile", {}))
@@ -239,7 +252,9 @@ def resolve_project_path(raw_path, default_path=None):
 
 def resolve_teardown_knowledge_base_path(config):
     return resolve_project_path(
-        config.get("video_teardown_knowledge_base_path", DEFAULT_CONFIG["video_teardown_knowledge_base_path"]),
+        normalize_teardown_knowledge_base_path(
+            config.get("video_teardown_knowledge_base_path", DEFAULT_CONFIG["video_teardown_knowledge_base_path"])
+        ),
         DEFAULT_TEARDOWN_KNOWLEDGE_BASE_PATH,
     )
 
@@ -253,9 +268,15 @@ def resolve_script_generation_prompt_path(config):
 
 def read_teardown_knowledge_base(config):
     path = resolve_teardown_knowledge_base_path(config)
-    if not path.exists():
-        return ""
-    return path.read_text(encoding="utf-8")
+    candidates = [path]
+    if path != DEFAULT_TEARDOWN_KNOWLEDGE_BASE_PATH:
+        candidates.append(DEFAULT_TEARDOWN_KNOWLEDGE_BASE_PATH)
+    if LEGACY_TEARDOWN_KNOWLEDGE_BASE_PATH not in candidates:
+        candidates.append(LEGACY_TEARDOWN_KNOWLEDGE_BASE_PATH)
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate.read_text(encoding="utf-8")
+    return ""
 
 
 def read_script_generation_prompt(config):
@@ -296,12 +317,12 @@ def save_teardown_defaults(payload):
         payload.get("video_analysis_model", config.get("video_analysis_model", DEFAULT_CONFIG["video_analysis_model"]))
     ).strip()
     config["video_analysis_prompt"] = str(payload.get("video_analysis_prompt", config.get("video_analysis_prompt", "")))
-    config["video_teardown_knowledge_base_path"] = str(
+    config["video_teardown_knowledge_base_path"] = normalize_teardown_knowledge_base_path(
         payload.get(
             "video_teardown_knowledge_base_path",
             config.get("video_teardown_knowledge_base_path", DEFAULT_CONFIG["video_teardown_knowledge_base_path"]),
         )
-    ).strip()
+    )
     if "video_teardown_knowledge_base" in payload:
         write_teardown_knowledge_base(config, payload.get("video_teardown_knowledge_base", ""))
     if "analysis_input_path" in payload:
@@ -313,6 +334,10 @@ def save_teardown_defaults(payload):
 
 def save_script_defaults(payload):
     config = load_config()
+    if "video_teardown_knowledge_base_path" in payload:
+        config["video_teardown_knowledge_base_path"] = normalize_teardown_knowledge_base_path(
+            payload.get("video_teardown_knowledge_base_path", config.get("video_teardown_knowledge_base_path", ""))
+        )
     config["script_generation_prompt_path"] = str(
         payload.get(
             "script_generation_prompt_path",
@@ -335,6 +360,8 @@ def save_script_defaults(payload):
     config["script_hook_duration"] = str(payload.get("script_hook_duration", config.get("script_hook_duration", "8s"))).strip()
     if "script_generation_prompt" in payload:
         write_script_generation_prompt(config, payload.get("script_generation_prompt", ""))
+    if "video_teardown_knowledge_base" in payload:
+        write_teardown_knowledge_base(config, payload.get("video_teardown_knowledge_base", ""))
     return save_config(config)
 
 
@@ -522,7 +549,7 @@ def validate_script_generation_input(config):
 
     prompt_path = resolve_script_generation_prompt_path(config)
     if not prompt_path.exists():
-        raise ValueError(f"脚本产出提示词文件不存在: {prompt_path}")
+        raise ValueError(f"改写提示词文件不存在: {prompt_path}")
 
 
 def open_local_path(raw_path):
@@ -860,16 +887,16 @@ INDEX_HTML = r"""<!doctype html>
       </select>
       <label>接口 Base URL</label>
       <input id="modelmesh_base_url" />
-      <label>视频拆解知识库文件</label>
-      <input id="video_teardown_knowledge_base_path" placeholder="knowledge_base/video_teardown_knowledge_base.md" />
+      <label>爆款内容知识库文件（拆解 / 改写共用）</label>
+      <input id="video_teardown_knowledge_base_path" placeholder="knowledge_base/hot_content_knowledge_base.md" />
       <label>拆解视频路径</label>
       <div class="pathrow">
         <input id="analysis_input_path" placeholder="请选择 MP4 视频或包含 MP4 的目录" />
         <button onclick="chooseAnalysisPath('folder')">选择目录</button>
         <button onclick="chooseAnalysisPath('file')">选择视频</button>
       </div>
-      <label>视频拆解知识库</label>
-      <textarea id="video_teardown_knowledge_base" class="knowledge" placeholder="这里会读取本地视频拆解知识库；可直接修改后保存。"></textarea>
+      <label>爆款内容知识库</label>
+      <textarea id="video_teardown_knowledge_base" class="knowledge" placeholder="这里会读取本地爆款内容知识库；拆解和脚本产出都会使用这份知识。"></textarea>
       <label>爆款视频拆解提示词</label>
       <textarea id="video_analysis_prompt" class="prompt" placeholder="粘贴或修改你的爆款视频拆解提示词；留空时使用最小测试提示词"></textarea>
       <div class="buttons">
@@ -877,7 +904,7 @@ INDEX_HTML = r"""<!doctype html>
         <button class="blue" onclick="startTask('analyze')">拆解视频</button>
         <button class="danger" onclick="stopTask()">停止任务</button>
       </div>
-      <p class="muted">选择目录时会拆解目录下全部 MP4；选择单个视频时只拆解该视频。知识库负责提供拆解判断标准，产品信息留给后续脚本仿写使用。</p>
+      <p class="muted">选择目录时会拆解目录下全部 MP4；选择单个视频时只拆解该视频。爆款内容知识库同时服务于视频拆解和脚本改写。</p>
     </section>
     <section>
       <h2>运行日志</h2>
@@ -904,7 +931,11 @@ INDEX_HTML = r"""<!doctype html>
         <h2>脚本产出参数</h2>
         <span class="filemeta">本地保存</span>
       </div>
-      <label>脚本产出提示词文件</label>
+      <div class="infoItem">
+        <strong>输入结构</strong>
+        <span class="muted">脚本产出 = 改写提示词 + 竞品拆解结果 + 产品信息 + 爆款内容知识库。</span>
+      </div>
+      <label>改写提示词本地文件</label>
       <input id="script_generation_prompt_path" placeholder="knowledge_base/script_generation_prompt.md" />
       <label>竞品视频拆解结果</label>
       <div class="pathrow">
@@ -938,14 +969,18 @@ INDEX_HTML = r"""<!doctype html>
       <textarea id="script_material_framework" class="tall" placeholder="可粘贴素材类型序号和框架公式；留空时从竞品拆解结果中自动提取。"></textarea>
       <label>参考案例补充</label>
       <textarea id="script_reference_case" class="tall" placeholder="可粘贴同类型案例全文；留空时直接使用选中的竞品视频拆解结果。"></textarea>
-      <label>爆款复刻提示词</label>
-      <textarea id="script_generation_prompt" class="scriptprompt" placeholder="这里会读取本地脚本产出提示词；可直接修改后保存。"></textarea>
+      <label>爆款内容知识库文件（与视频拆解共用）</label>
+      <input id="script_content_knowledge_base_path" placeholder="knowledge_base/hot_content_knowledge_base.md" />
+      <label>爆款内容知识库</label>
+      <textarea id="script_content_knowledge_base" class="knowledge" placeholder="这里会读取本地爆款内容知识库；用于约束素材框架、原生感和转化逻辑。"></textarea>
+      <label>改写提示词内容</label>
+      <textarea id="script_generation_prompt" class="scriptprompt" placeholder="这里会读取本地改写提示词；负责规定怎么根据拆解结果和产品信息复刻脚本。"></textarea>
       <div class="buttons">
         <button class="primary" onclick="saveScriptDefaults()">保存脚本设置</button>
         <button class="blue" onclick="startTask('script')">生成脚本</button>
         <button class="danger" onclick="stopTask()">停止任务</button>
       </div>
-      <p class="muted">脚本产出会读取「产品信息」页保存的产品资料，并结合你选择的竞品拆解结果。生成内容保存在本地，不会提交到 GitHub。</p>
+      <p class="muted">产品信息来自「产品信息」页；爆款内容知识库和视频拆解共用。生成内容保存在本地，不会提交到 GitHub。</p>
     </section>
     <section>
       <h2>运行日志</h2>
@@ -1268,12 +1303,14 @@ INDEX_HTML = r"""<!doctype html>
       modelmesh_api_key.value = cfg.modelmesh_api_key || '';
       modelmesh_base_url.value = cfg.modelmesh_base_url || 'https://router.shengsuanyun.com/api';
       video_analysis_model.value = cfg.video_analysis_model || 'google/gemini-3-flash';
-      video_teardown_knowledge_base_path.value = cfg.video_teardown_knowledge_base_path || 'knowledge_base/video_teardown_knowledge_base.md';
+      video_teardown_knowledge_base_path.value = cfg.video_teardown_knowledge_base_path || 'knowledge_base/hot_content_knowledge_base.md';
       video_teardown_knowledge_base.value = cfg.video_teardown_knowledge_base || '';
       analysis_input_path.value = cfg.analysis_input_path || '';
       video_analysis_prompt.value = cfg.video_analysis_prompt || '';
       script_generation_prompt_path.value = cfg.script_generation_prompt_path || 'knowledge_base/script_generation_prompt.md';
       script_generation_prompt.value = cfg.script_generation_prompt || '';
+      script_content_knowledge_base_path.value = cfg.video_teardown_knowledge_base_path || 'knowledge_base/hot_content_knowledge_base.md';
+      script_content_knowledge_base.value = cfg.video_teardown_knowledge_base || '';
       script_reference_analysis_path.value = cfg.script_reference_analysis_path || '';
       script_country.value = cfg.script_country || cfg.country || '';
       script_material_framework.value = cfg.script_material_framework || '';
@@ -1338,6 +1375,8 @@ INDEX_HTML = r"""<!doctype html>
       const payload = {
         script_generation_prompt_path: script_generation_prompt_path.value.trim(),
         script_generation_prompt: script_generation_prompt.value,
+        video_teardown_knowledge_base_path: script_content_knowledge_base_path.value.trim(),
+        video_teardown_knowledge_base: script_content_knowledge_base.value,
         script_reference_analysis_path: script_reference_analysis_path.value.trim(),
         script_country: script_country.value.trim(),
         script_material_framework: script_material_framework.value,
