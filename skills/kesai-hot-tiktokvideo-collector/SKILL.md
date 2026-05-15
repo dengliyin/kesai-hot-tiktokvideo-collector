@@ -86,7 +86,7 @@ The Gemini teardown test phase:
 - Calls the Shengsuanyun/ModelMesh Gemini-compatible endpoint with a local MP4 as base64 inline video.
 - Uses `google/gemini-3-flash` by default.
 - Writes Markdown and raw JSON results to local `analysis/`.
-- The Web UI has a separate "视频拆解" page for editing and locally saving the API key, model, teardown prompt, shared hot-content knowledge base, and a manual video path. The path can be a directory of MP4 files or a single MP4 file; directories are analyzed in full, single files are analyzed alone, and the path is required. The teardown page does not automatically use collection download folders.
+- The Web UI has a separate "视频拆解" page for editing and locally saving the API key, model, teardown prompt, shared hot-content knowledge base path, and a manual video path. The path can be a directory of MP4 files or a single MP4 file; directories are analyzed in full, single files are analyzed alone, and the path is required. The teardown page does not automatically use collection download folders. The UI only shows the shared knowledge base path; edit the knowledge base text by opening the local file.
 - The first local shared content knowledge base is stored at `knowledge_base/hot_content_knowledge_base.md`. It is local-only and ignored by Git. Use it for competitor/video teardown methodology and script rewriting methodology; product profile context still lives separately under `product_profile`. Legacy local files named `knowledge_base/video_teardown_knowledge_base.md` are read as a fallback only.
 
 The product profile phase:

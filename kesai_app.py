@@ -302,7 +302,6 @@ def write_script_generation_prompt(config, text):
 
 def config_payload():
     config = load_config()
-    config["video_teardown_knowledge_base"] = read_teardown_knowledge_base(config)
     config["script_generation_prompt"] = read_script_generation_prompt(config)
     return config
 
@@ -323,8 +322,6 @@ def save_teardown_defaults(payload):
             config.get("video_teardown_knowledge_base_path", DEFAULT_CONFIG["video_teardown_knowledge_base_path"]),
         )
     )
-    if "video_teardown_knowledge_base" in payload:
-        write_teardown_knowledge_base(config, payload.get("video_teardown_knowledge_base", ""))
     if "analysis_input_path" in payload:
         config["analysis_input_path"] = str(payload.get("analysis_input_path", config.get("analysis_input_path", ""))).strip()
     config["video_analysis_max_output_tokens"] = int(config.get("video_analysis_max_output_tokens", 32768))
@@ -360,8 +357,6 @@ def save_script_defaults(payload):
     config["script_hook_duration"] = str(payload.get("script_hook_duration", config.get("script_hook_duration", "8s"))).strip()
     if "script_generation_prompt" in payload:
         write_script_generation_prompt(config, payload.get("script_generation_prompt", ""))
-    if "video_teardown_knowledge_base" in payload:
-        write_teardown_knowledge_base(config, payload.get("video_teardown_knowledge_base", ""))
     return save_config(config)
 
 
@@ -888,15 +883,16 @@ INDEX_HTML = r"""<!doctype html>
       <label>接口 Base URL</label>
       <input id="modelmesh_base_url" />
       <label>爆款内容知识库文件（拆解 / 改写共用）</label>
-      <input id="video_teardown_knowledge_base_path" placeholder="knowledge_base/hot_content_knowledge_base.md" />
+      <div class="pathrow">
+        <input id="video_teardown_knowledge_base_path" placeholder="knowledge_base/hot_content_knowledge_base.md" />
+        <button onclick="openLocalPath(video_teardown_knowledge_base_path.value)">打开文件</button>
+      </div>
       <label>拆解视频路径</label>
       <div class="pathrow">
         <input id="analysis_input_path" placeholder="请选择 MP4 视频或包含 MP4 的目录" />
         <button onclick="chooseAnalysisPath('folder')">选择目录</button>
         <button onclick="chooseAnalysisPath('file')">选择视频</button>
       </div>
-      <label>爆款内容知识库</label>
-      <textarea id="video_teardown_knowledge_base" class="knowledge" placeholder="这里会读取本地爆款内容知识库；拆解和脚本产出都会使用这份知识。"></textarea>
       <label>爆款视频拆解提示词</label>
       <textarea id="video_analysis_prompt" class="prompt" placeholder="粘贴或修改你的爆款视频拆解提示词；留空时使用最小测试提示词"></textarea>
       <div class="buttons">
@@ -970,9 +966,10 @@ INDEX_HTML = r"""<!doctype html>
       <label>参考案例补充</label>
       <textarea id="script_reference_case" class="tall" placeholder="可粘贴同类型案例全文；留空时直接使用选中的竞品视频拆解结果。"></textarea>
       <label>爆款内容知识库文件（与视频拆解共用）</label>
-      <input id="script_content_knowledge_base_path" placeholder="knowledge_base/hot_content_knowledge_base.md" />
-      <label>爆款内容知识库</label>
-      <textarea id="script_content_knowledge_base" class="knowledge" placeholder="这里会读取本地爆款内容知识库；用于约束素材框架、原生感和转化逻辑。"></textarea>
+      <div class="pathrow">
+        <input id="script_content_knowledge_base_path" placeholder="knowledge_base/hot_content_knowledge_base.md" />
+        <button onclick="openLocalPath(script_content_knowledge_base_path.value)">打开文件</button>
+      </div>
       <label>改写提示词内容</label>
       <textarea id="script_generation_prompt" class="scriptprompt" placeholder="这里会读取本地改写提示词；负责规定怎么根据拆解结果和产品信息复刻脚本。"></textarea>
       <div class="buttons">
@@ -1304,13 +1301,11 @@ INDEX_HTML = r"""<!doctype html>
       modelmesh_base_url.value = cfg.modelmesh_base_url || 'https://router.shengsuanyun.com/api';
       video_analysis_model.value = cfg.video_analysis_model || 'google/gemini-3-flash';
       video_teardown_knowledge_base_path.value = cfg.video_teardown_knowledge_base_path || 'knowledge_base/hot_content_knowledge_base.md';
-      video_teardown_knowledge_base.value = cfg.video_teardown_knowledge_base || '';
       analysis_input_path.value = cfg.analysis_input_path || '';
       video_analysis_prompt.value = cfg.video_analysis_prompt || '';
       script_generation_prompt_path.value = cfg.script_generation_prompt_path || 'knowledge_base/script_generation_prompt.md';
       script_generation_prompt.value = cfg.script_generation_prompt || '';
       script_content_knowledge_base_path.value = cfg.video_teardown_knowledge_base_path || 'knowledge_base/hot_content_knowledge_base.md';
-      script_content_knowledge_base.value = cfg.video_teardown_knowledge_base || '';
       script_reference_analysis_path.value = cfg.script_reference_analysis_path || '';
       script_country.value = cfg.script_country || cfg.country || '';
       script_material_framework.value = cfg.script_material_framework || '';
@@ -1363,7 +1358,6 @@ INDEX_HTML = r"""<!doctype html>
         modelmesh_base_url: modelmesh_base_url.value.trim(),
         video_analysis_model: video_analysis_model.value,
         video_teardown_knowledge_base_path: video_teardown_knowledge_base_path.value.trim(),
-        video_teardown_knowledge_base: video_teardown_knowledge_base.value,
         analysis_input_path: analysis_input_path.value.trim(),
         video_analysis_prompt: video_analysis_prompt.value
       };
@@ -1376,7 +1370,6 @@ INDEX_HTML = r"""<!doctype html>
         script_generation_prompt_path: script_generation_prompt_path.value.trim(),
         script_generation_prompt: script_generation_prompt.value,
         video_teardown_knowledge_base_path: script_content_knowledge_base_path.value.trim(),
-        video_teardown_knowledge_base: script_content_knowledge_base.value,
         script_reference_analysis_path: script_reference_analysis_path.value.trim(),
         script_country: script_country.value.trim(),
         script_material_framework: script_material_framework.value,
