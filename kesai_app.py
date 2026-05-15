@@ -568,7 +568,7 @@ INDEX_HTML = r"""<!doctype html>
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>科赛力量爆款收集专家</title>
+  <title>OPC 内容量化增长引擎</title>
   <style>
     :root {
       color-scheme: light;
@@ -670,7 +670,7 @@ INDEX_HTML = r"""<!doctype html>
 <body data-page="collect">
   <header>
     <div class="headleft">
-      <h1>科赛力量爆款收集专家</h1>
+      <h1>OPC 内容量化增长引擎</h1>
       <nav class="nav" aria-label="功能页面">
         <a id="productNav" href="/product">产品信息</a>
         <a id="collectNav" href="/collect">爆款采集</a>
@@ -1693,7 +1693,7 @@ def main():
     KNOWLEDGE_BASE_DIR.mkdir(exist_ok=True)
     server = ThreadingHTTPServer((HOST, PORT), Handler)
     url = f"http://{HOST}:{PORT}"
-    print(f"科赛力量爆款收集专家已启动: {url}")
+    print(f"OPC 内容量化增长引擎已启动: {url}")
     if os.environ.get("KESAI_APP_NO_OPEN") != "1":
         webbrowser.open(url)
     try:

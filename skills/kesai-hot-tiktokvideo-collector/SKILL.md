@@ -1,9 +1,9 @@
 ---
 name: kesai-hot-tiktokvideo-collector
-description: Run and maintain the local "科赛力量爆款收集专家" app for product context storage, FastMoss TikTok product/video collection, Kolsprite video downloads, Gemini/ModelMesh video teardown, product script generation, script adaptation, clip assembly, publishing records, metrics recovery, and script optimization. Use when the user asks to collect FastMoss product-linked TikTok video data, export TikTok video URLs, download videos from collected URLs, analyze downloaded TikTok videos into scripts, generate product sales scripts from teardown results and product information, adapt scripts for video generation models, combine generated clips, prepare TikTok publishing records, recover video metrics, optimize scripts from performance data, adjust the app workflow, update saved task parameters, or troubleshoot this specific collector.
+description: Run and maintain the local "OPC 内容量化增长引擎" app for product context storage, FastMoss TikTok product/video collection, Kolsprite video downloads, Gemini/ModelMesh video teardown, product script generation, script adaptation, clip assembly, publishing records, metrics recovery, and script optimization. Use when the user asks to collect FastMoss product-linked TikTok video data, export TikTok video URLs, download videos from collected URLs, analyze downloaded TikTok videos into scripts, generate product sales scripts from teardown results and product information, adapt scripts for video generation models, combine generated clips, prepare TikTok publishing records, recover video metrics, optimize scripts from performance data, adjust the app workflow, update saved task parameters, or troubleshoot this specific collector.
 ---
 
-# 科赛力量爆款收集专家
+# OPC 内容量化增长引擎
 
 ## Overview
 
@@ -172,4 +172,4 @@ TikTok视频ID.mp4
 - Never commit real task keywords in examples, defaults, docs, or skill text. Use an empty value or a generic placeholder.
 - Do not print the saved FastMoss password in final responses or logs beyond what the app already masks in its UI.
 - Prefer the app and existing scripts over ad hoc browser automation unless debugging a selector failure.
-- When changing the app, keep the user-facing title as `科赛力量爆款收集专家`.
+- When changing the app, keep the user-facing title as `OPC 内容量化增长引擎`.
