@@ -57,6 +57,10 @@ python3 scripts/run_collection_pipeline.py
 
 The full pipeline first runs `scripts/collect_fastmoss_product_videos.py`, then `scripts/download_tiktok_videos_kolsprite.py`.
 
+## Change Management
+
+When the user asks to adjust one workflow step, always audit and update related surfaces in the same turn where practical: Web UI labels and inputs, saved config schema, command scripts, local prompt files, README, this skill file, and downstream workflow stages that consume the changed output. For example, if script generation stops asking for a manually entered material framework, also update the rewrite prompt and generation script so the framework is extracted from the selected teardown Markdown.
+
 ## What The Collector Does
 
 The FastMoss collection phase:
