@@ -931,8 +931,6 @@ INDEX_HTML = r"""<!doctype html>
         <strong>输入结构</strong>
         <span class="muted">脚本产出 = 改写提示词 + 竞品拆解结果 + 产品信息 + 爆款内容知识库。</span>
       </div>
-      <label>改写提示词本地文件</label>
-      <input id="script_generation_prompt_path" placeholder="knowledge_base/script_generation_prompt.md" />
       <label>竞品视频拆解结果</label>
       <div class="pathrow">
         <input id="script_reference_analysis_path" placeholder="请选择一个视频拆解结果 .md 文件" />
@@ -1303,7 +1301,6 @@ INDEX_HTML = r"""<!doctype html>
       video_teardown_knowledge_base_path.value = cfg.video_teardown_knowledge_base_path || 'knowledge_base/hot_content_knowledge_base.md';
       analysis_input_path.value = cfg.analysis_input_path || '';
       video_analysis_prompt.value = cfg.video_analysis_prompt || '';
-      script_generation_prompt_path.value = cfg.script_generation_prompt_path || 'knowledge_base/script_generation_prompt.md';
       script_generation_prompt.value = cfg.script_generation_prompt || '';
       script_content_knowledge_base_path.value = cfg.video_teardown_knowledge_base_path || 'knowledge_base/hot_content_knowledge_base.md';
       script_reference_analysis_path.value = cfg.script_reference_analysis_path || '';
@@ -1367,7 +1364,6 @@ INDEX_HTML = r"""<!doctype html>
     }
     async function saveScriptDefaults(silent=false) {
       const payload = {
-        script_generation_prompt_path: script_generation_prompt_path.value.trim(),
         script_generation_prompt: script_generation_prompt.value,
         video_teardown_knowledge_base_path: script_content_knowledge_base_path.value.trim(),
         script_reference_analysis_path: script_reference_analysis_path.value.trim(),
