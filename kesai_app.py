@@ -883,7 +883,7 @@ INDEX_HTML = r"""<!doctype html>
       </select>
       <label>接口 Base URL</label>
       <input id="modelmesh_base_url" />
-      <label>爆款内容知识库文件（拆解 / 改写共用）</label>
+      <label>爆款内容知识库</label>
       <div class="pathrow">
         <input id="video_teardown_knowledge_base_path" placeholder="knowledge_base/hot_content_knowledge_base.md" />
         <button onclick="openLocalPath(video_teardown_knowledge_base_path.value)">打开文件</button>
@@ -960,7 +960,7 @@ INDEX_HTML = r"""<!doctype html>
       </div>
       <label>音频情绪强度</label>
       <input id="script_audio_emotion" placeholder="例如：毒舌犀利 / 离职博主爆料 / 强度 8" />
-      <label>爆款内容知识库文件（与视频拆解共用）</label>
+      <label>爆款内容知识库</label>
       <div class="pathrow">
         <input id="script_content_knowledge_base_path" placeholder="knowledge_base/hot_content_knowledge_base.md" />
         <button onclick="openLocalPath(script_content_knowledge_base_path.value)">打开文件</button>
